@@ -7,111 +7,162 @@ import {
   Param,
   Body,
   Query,
+  Req,
+  Res,
   UseGuards,
+  UseFilters,
+  UsePipes,
+  ValidationPipe,
   ParseUUIDPipe,
-  HttpCode,
   HttpStatus,
 } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
   ApiBearerAuth,
-  ApiParam,
+  ApiHeader,
+  ApiCreatedResponse,
+  ApiOkResponse,
 } from '@nestjs/swagger';
+import { Request, Response } from 'express';
 
 import { SurveyService } from '../services/survey.service';
 import { CreateSurveyDto } from '../dto/create-survey.dto';
 import { UpdateSurveyDto } from '../dto/update-survey.dto';
 import { PaginationDto } from '@/common/dto/pagination.dto';
+import { APIID } from '@/common/utils/api-id.config';
 
-import { AuthGuard } from '@/common/guards/auth.guard';
-import { TenantGuard } from '@/common/guards/tenant.guard';
-import { Tenant } from '@/common/decorators/tenant.decorator';
-import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import { JwtAuthGuard } from '@/common/guards/keycloak.guard';
+import { AllExceptionsFilter } from '@/common/filters/exception.filter';
+import { GetTenantId } from '@/common/decorators/tenant.decorator';
+import { GetUserId } from '@/common/decorators/current-user.decorator';
 
 @ApiTags('surveys')
 @ApiBearerAuth()
 @Controller('surveys')
-@UseGuards(AuthGuard, TenantGuard)
+@UseGuards(JwtAuthGuard)
 export class SurveyController {
   constructor(private readonly surveyService: SurveyService) {}
 
-  @Post()
-  @ApiOperation({ summary: 'Create a new survey' })
-  async create(
-    @Tenant() tenantId: string,
-    @CurrentUser('userId') userId: string,
+  @UseFilters(new AllExceptionsFilter(APIID.SURVEY_CREATE))
+  @Post('create')
+  @UsePipes(new ValidationPipe())
+  @ApiHeader({ name: 'tenantid' })
+  @ApiCreatedResponse({ description: 'Survey created successfully' })
+  public async create(
+    @Req() request: Request,
     @Body() dto: CreateSurveyDto,
+    @Res() response: Response,
+    @GetTenantId() tenantId: string,
+    @GetUserId() userId: string,
   ) {
-    return this.surveyService.create(tenantId, userId, dto);
+    return this.surveyService.create(request, tenantId, userId, dto, response);
   }
 
-  @Get()
-  @ApiOperation({ summary: 'List all surveys for tenant' })
-  async findAll(
-    @Tenant() tenantId: string,
-    @Query() pagination: PaginationDto,
+  @UseFilters(new AllExceptionsFilter(APIID.SURVEY_LIST))
+  @Post('list')
+  @UsePipes(new ValidationPipe())
+  @ApiHeader({ name: 'tenantid' })
+  @ApiOkResponse({ description: 'Surveys fetched successfully' })
+  public async findAll(
+    @Req() request: Request,
+    @Body() pagination: PaginationDto,
+    @Res() response: Response,
+    @GetTenantId() tenantId: string,
   ) {
-    return this.surveyService.findAll(tenantId, pagination);
+    return this.surveyService.findAll(request, tenantId, pagination, response);
   }
 
-  @Get(':surveyId')
-  @ApiOperation({ summary: 'Get survey by ID with all sections and fields' })
-  @ApiParam({ name: 'surveyId', type: 'string', format: 'uuid' })
-  async findOne(
-    @Tenant() tenantId: string,
+  @UseFilters(new AllExceptionsFilter(APIID.SURVEY_READ))
+  @Get('read/:surveyId')
+  @ApiHeader({ name: 'tenantid' })
+  @ApiOkResponse({ description: 'Survey fetched successfully' })
+  public async findOne(
+    @Req() request: Request,
+    @Res() response: Response,
+    @GetTenantId() tenantId: string,
     @Param('surveyId', ParseUUIDPipe) surveyId: string,
   ) {
-    return this.surveyService.findOne(tenantId, surveyId);
+    return this.surveyService.findOne(request, tenantId, surveyId, response);
   }
 
-  @Put(':surveyId')
-  @ApiOperation({ summary: 'Update survey' })
-  async update(
-    @Tenant() tenantId: string,
+  @UseFilters(new AllExceptionsFilter(APIID.SURVEY_UPDATE))
+  @Put('update/:surveyId')
+  @UsePipes(new ValidationPipe())
+  @ApiHeader({ name: 'tenantid' })
+  @ApiOkResponse({ description: 'Survey updated successfully' })
+  public async update(
+    @Req() request: Request,
+    @Res() response: Response,
+    @GetTenantId() tenantId: string,
     @Param('surveyId', ParseUUIDPipe) surveyId: string,
     @Body() dto: UpdateSurveyDto,
   ) {
-    return this.surveyService.update(tenantId, surveyId, dto);
+    return this.surveyService.update(
+      request,
+      tenantId,
+      surveyId,
+      dto,
+      response,
+    );
   }
 
+  @UseFilters(new AllExceptionsFilter(APIID.SURVEY_PUBLISH))
   @Post(':surveyId/publish')
-  @ApiOperation({ summary: 'Publish a draft survey' })
-  @HttpCode(HttpStatus.OK)
-  async publish(
-    @Tenant() tenantId: string,
+  @ApiHeader({ name: 'tenantid' })
+  @ApiOkResponse({ description: 'Survey published successfully' })
+  public async publish(
+    @Req() request: Request,
+    @Res() response: Response,
+    @GetTenantId() tenantId: string,
     @Param('surveyId', ParseUUIDPipe) surveyId: string,
   ) {
-    return this.surveyService.publish(tenantId, surveyId);
+    return this.surveyService.publish(request, tenantId, surveyId, response);
   }
 
+  @UseFilters(new AllExceptionsFilter(APIID.SURVEY_CLOSE))
   @Post(':surveyId/close')
-  @ApiOperation({ summary: 'Close a published survey' })
-  @HttpCode(HttpStatus.OK)
-  async close(
-    @Tenant() tenantId: string,
+  @ApiHeader({ name: 'tenantid' })
+  @ApiOkResponse({ description: 'Survey closed successfully' })
+  public async close(
+    @Req() request: Request,
+    @Res() response: Response,
+    @GetTenantId() tenantId: string,
     @Param('surveyId', ParseUUIDPipe) surveyId: string,
   ) {
-    return this.surveyService.close(tenantId, surveyId);
+    return this.surveyService.close(request, tenantId, surveyId, response);
   }
 
+  @UseFilters(new AllExceptionsFilter(APIID.SURVEY_DUPLICATE))
   @Post(':surveyId/duplicate')
-  @ApiOperation({ summary: 'Duplicate a survey' })
-  async duplicate(
-    @Tenant() tenantId: string,
+  @ApiHeader({ name: 'tenantid' })
+  @ApiCreatedResponse({ description: 'Survey duplicated successfully' })
+  public async duplicate(
+    @Req() request: Request,
+    @Res() response: Response,
+    @GetTenantId() tenantId: string,
     @Param('surveyId', ParseUUIDPipe) surveyId: string,
-    @CurrentUser('userId') userId: string,
+    @GetUserId() userId: string,
   ) {
-    return this.surveyService.duplicate(tenantId, surveyId, userId);
+    return this.surveyService.duplicate(
+      request,
+      tenantId,
+      surveyId,
+      userId,
+      response,
+    );
   }
 
-  @Delete(':surveyId')
-  @ApiOperation({ summary: 'Delete a survey' })
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async delete(
-    @Tenant() tenantId: string,
+  @UseFilters(new AllExceptionsFilter(APIID.SURVEY_DELETE))
+  @Delete('delete/:surveyId')
+  @ApiHeader({ name: 'tenantid' })
+  @ApiOkResponse({ description: 'Survey deleted successfully' })
+  public async delete(
+    @Req() request: Request,
+    @Res() response: Response,
+    @GetTenantId() tenantId: string,
     @Param('surveyId', ParseUUIDPipe) surveyId: string,
   ) {
-    await this.surveyService.delete(tenantId, surveyId);
+    return this.surveyService.delete(request, tenantId, surveyId, response);
   }
 }

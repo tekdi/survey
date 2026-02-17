@@ -21,7 +21,7 @@ export class PaginationDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  sortBy?: string = 'created_at';
+  sortBy?: string = 'createdAt';
 
   @ApiPropertyOptional({ enum: ['ASC', 'DESC'], default: 'DESC' })
   @IsOptional()

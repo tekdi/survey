@@ -11,11 +11,12 @@ import {
 } from './config';
 
 import { DatabaseModule } from './database/database.module';
-import { TenantModule } from './modules/tenant/tenant.module';
+import { AuthModule } from './auth/auth.module';
 import { SurveyModule } from './modules/survey/survey.module';
 import { ResponseModule } from './modules/response/response.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { FileUploadModule } from './modules/file-upload/file-upload.module';
+import { ReportSyncModule } from './modules/report-sync/report-sync.module';
 
 @Module({
   imports: [
@@ -37,8 +38,11 @@ import { FileUploadModule } from './modules/file-upload/file-upload.module';
     // Database
     DatabaseModule,
 
+    // Core modules
+    AuthModule,
+    ReportSyncModule,
+
     // Feature modules
-    TenantModule,
     SurveyModule,
     ResponseModule,
     StorageModule,

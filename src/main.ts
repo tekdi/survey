@@ -5,8 +5,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import * as helmet from 'helmet';
 
 import { AppModule } from './app.module';
-import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
-import { TransformInterceptor } from './common/interceptors/transform.interceptor';
+import { AllExceptionsFilter } from './common/filters/exception.filter';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -18,30 +17,17 @@ async function bootstrap() {
   app.enableCors({
     origin: process.env.CORS_ORIGINS?.split(',') || '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-tenant-id'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'tenantid', 'rbac_token'],
   });
 
-  // Global prefix
+  // Global prefix — matches user-microservice pattern: survey/v1
   const apiPrefix = configService.get<string>('app.apiPrefix');
   app.setGlobalPrefix(apiPrefix);
 
-  // Global pipes
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-      transformOptions: {
-        enableImplicitConversion: true,
-      },
-    }),
-  );
+  // Global exception filter (matching user-microservice AllExceptionsFilter)
+  app.useGlobalFilters(new AllExceptionsFilter());
 
-  // Global filters & interceptors
-  app.useGlobalFilters(new GlobalExceptionFilter());
-  app.useGlobalInterceptors(new TransformInterceptor());
-
-  // Swagger documentation
+  // Swagger documentation at /swagger-docs (matching user-microservice)
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Survey Service API')
     .setDescription(
@@ -49,17 +35,20 @@ async function bootstrap() {
     )
     .setVersion('1.0')
     .addBearerAuth()
-    .addApiKey({ type: 'apiKey', name: 'x-tenant-id', in: 'header' }, 'tenant-id')
+    .addApiKey(
+      { type: 'apiKey', name: 'tenantid', in: 'header' },
+      'tenantid',
+    )
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('docs', app, document);
+  SwaggerModule.setup('swagger-docs', app, document);
 
   // Start server
   const port = configService.get<number>('app.port');
   await app.listen(port);
   logger.log(`Application running on port ${port}`);
-  logger.log(`Swagger docs: http://localhost:${port}/docs`);
+  logger.log(`Swagger docs: http://localhost:${port}/swagger-docs`);
 }
 
 bootstrap();

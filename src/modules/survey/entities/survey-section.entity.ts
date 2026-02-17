@@ -12,55 +12,43 @@ import {
 import { Survey } from './survey.entity';
 import { SurveyField } from './survey-field.entity';
 
-@Entity('survey_sections')
-@Index('idx_section_survey', ['survey_id'])
+@Entity({ name: 'SurveySections' })
+@Index('idx_section_survey', ['surveyId'])
 export class SurveySection {
-  @PrimaryGeneratedColumn('uuid')
-  section_id: string;
+  @PrimaryGeneratedColumn('uuid', { name: 'sectionId' })
+  sectionId: string;
 
-  @Column({ type: 'uuid' })
-  survey_id: string;
+  @Column({ name: 'surveyId', type: 'uuid' })
+  surveyId: string;
 
-  @Column({ type: 'varchar', length: 50 })
-  tenant_id: string;
+  @Column({ name: 'tenantId', type: 'uuid' })
+  tenantId: string;
 
-  @Column({ type: 'varchar', length: 255 })
-  section_title: string;
+  @Column({ name: 'sectionTitle', type: 'varchar', length: 255 })
+  sectionTitle: string;
 
-  @Column({ type: 'text', nullable: true })
-  section_description: string;
+  @Column({ name: 'sectionDescription', type: 'text', nullable: true })
+  sectionDescription: string;
 
-  @Column({ type: 'integer', default: 0 })
-  display_order: number;
+  @Column({ name: 'displayOrder', type: 'integer', default: 0 })
+  displayOrder: number;
 
-  @Column({ type: 'boolean', default: true })
-  is_visible: boolean;
+  @Column({ name: 'isVisible', type: 'boolean', default: true })
+  isVisible: boolean;
 
-  @Column({ type: 'jsonb', nullable: true })
-  conditional_logic: {
-    conditions?: Array<{
-      fieldId: string;
-      operator: string;
-      value: any;
-    }>;
-    action?: 'show' | 'hide';
-  };
+  @Column({ name: 'conditionalLogic', type: 'jsonb', nullable: true })
+  conditionalLogic: Record<string, any>;
 
-  @ManyToOne(() => Survey, (survey) => survey.sections, {
-    onDelete: 'CASCADE',
-  })
-  @JoinColumn({ name: 'survey_id' })
+  @ManyToOne(() => Survey, (survey) => survey.sections, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'surveyId' })
   survey: Survey;
 
-  @OneToMany(() => SurveyField, (field) => field.section, {
-    cascade: true,
-    eager: false,
-  })
+  @OneToMany(() => SurveyField, (field) => field.section, { cascade: true, eager: false })
   fields: SurveyField[];
 
-  @CreateDateColumn()
-  created_at: Date;
+  @CreateDateColumn({ name: 'createdAt', type: 'timestamp with time zone' })
+  createdAt: Date;
 
-  @UpdateDateColumn()
-  updated_at: Date;
+  @UpdateDateColumn({ name: 'updatedAt', type: 'timestamp with time zone' })
+  updatedAt: Date;
 }

@@ -5,13 +5,23 @@ import {
   Put,
   Param,
   Body,
-  Query,
+  Req,
+  Res,
   UseGuards,
+  UseFilters,
+  UsePipes,
+  ValidationPipe,
   ParseUUIDPipe,
-  HttpCode,
-  HttpStatus,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiHeader,
+  ApiOkResponse,
+  ApiCreatedResponse,
+} from '@nestjs/swagger';
+import { Request, Response } from 'express';
 
 import { ResponseService } from '../services/response.service';
 import {
@@ -19,80 +29,107 @@ import {
   UpdateResponseDto,
   SubmitResponseDto,
 } from '../dto/create-response.dto';
-import { PaginationDto } from '@/common/dto/pagination.dto';
+import { APIID } from '@/common/utils/api-id.config';
 
-import { AuthGuard } from '@/common/guards/auth.guard';
-import { TenantGuard } from '@/common/guards/tenant.guard';
-import { Tenant } from '@/common/decorators/tenant.decorator';
-import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import { JwtAuthGuard } from '@/common/guards/keycloak.guard';
+import { AllExceptionsFilter } from '@/common/filters/exception.filter';
+import { GetTenantId } from '@/common/decorators/tenant.decorator';
+import { GetUserId } from '@/common/decorators/current-user.decorator';
 
 @ApiTags('survey-responses')
 @ApiBearerAuth()
-@Controller('surveys/:surveyId/responses')
-@UseGuards(AuthGuard, TenantGuard)
+@Controller('responses')
+@UseGuards(JwtAuthGuard)
 export class ResponseController {
   constructor(private readonly responseService: ResponseService) {}
 
-  @Post()
-  @ApiOperation({ summary: 'Start a new survey response' })
-  async create(
-    @Tenant() tenantId: string,
-    @CurrentUser('userId') userId: string,
-    @Param('surveyId', ParseUUIDPipe) surveyId: string,
+  @UseFilters(new AllExceptionsFilter(APIID.RESPONSE_CREATE))
+  @Post('create/:surveyId')
+  @UsePipes(new ValidationPipe())
+  @ApiHeader({ name: 'tenantid' })
+  @ApiCreatedResponse({ description: 'Response started successfully' })
+  public async create(
+    @Req() request: Request,
     @Body() dto: CreateResponseDto,
-  ) {
-    dto.survey_id = surveyId;
-    return this.responseService.create(tenantId, userId, dto);
-  }
-
-  @Get()
-  @ApiOperation({ summary: 'List all responses for a survey' })
-  async findAll(
-    @Tenant() tenantId: string,
-    @Param('surveyId', ParseUUIDPipe) surveyId: string,
-    @Query() pagination: PaginationDto,
-  ) {
-    return this.responseService.findAllBySurvey(tenantId, surveyId, pagination);
-  }
-
-  @Get('stats')
-  @ApiOperation({ summary: 'Get response statistics for a survey' })
-  async getStats(
-    @Tenant() tenantId: string,
+    @Res() response: Response,
+    @GetTenantId() tenantId: string,
+    @GetUserId() userId: string,
     @Param('surveyId', ParseUUIDPipe) surveyId: string,
   ) {
-    return this.responseService.getStats(tenantId, surveyId);
+    dto.surveyId = surveyId;
+    return this.responseService.create(request, tenantId, userId, dto, response);
   }
 
-  @Get(':responseId')
-  @ApiOperation({ summary: 'Get a specific response' })
-  async findOne(
-    @Tenant() tenantId: string,
+  @UseFilters(new AllExceptionsFilter(APIID.RESPONSE_LIST))
+  @Post('list/:surveyId')
+  @UsePipes(new ValidationPipe())
+  @ApiHeader({ name: 'tenantid' })
+  @ApiOkResponse({ description: 'Responses fetched successfully' })
+  public async findAll(
+    @Req() request: Request,
+    @Body() body: { page?: number; limit?: number; sortBy?: string; sortOrder?: 'ASC' | 'DESC' },
+    @Res() response: Response,
+    @GetTenantId() tenantId: string,
+    @Param('surveyId', ParseUUIDPipe) surveyId: string,
+  ) {
+    return this.responseService.findAllBySurvey(request, tenantId, surveyId, body, response);
+  }
+
+  @UseFilters(new AllExceptionsFilter(APIID.RESPONSE_STATS))
+  @Get('stats/:surveyId')
+  @ApiHeader({ name: 'tenantid' })
+  @ApiOkResponse({ description: 'Response statistics fetched successfully' })
+  public async getStats(
+    @Req() request: Request,
+    @Res() response: Response,
+    @GetTenantId() tenantId: string,
+    @Param('surveyId', ParseUUIDPipe) surveyId: string,
+  ) {
+    return this.responseService.getStats(request, tenantId, surveyId, response);
+  }
+
+  @UseFilters(new AllExceptionsFilter(APIID.RESPONSE_READ))
+  @Get('read/:responseId')
+  @ApiHeader({ name: 'tenantid' })
+  @ApiOkResponse({ description: 'Response fetched successfully' })
+  public async findOne(
+    @Req() request: Request,
+    @Res() response: Response,
+    @GetTenantId() tenantId: string,
     @Param('responseId', ParseUUIDPipe) responseId: string,
   ) {
-    return this.responseService.findOne(tenantId, responseId);
+    return this.responseService.findOne(request, tenantId, responseId, response);
   }
 
-  @Put(':responseId')
-  @ApiOperation({ summary: 'Update response data (partial save)' })
-  async update(
-    @Tenant() tenantId: string,
+  @UseFilters(new AllExceptionsFilter(APIID.RESPONSE_UPDATE))
+  @Put('update/:responseId')
+  @UsePipes(new ValidationPipe())
+  @ApiHeader({ name: 'tenantid' })
+  @ApiOkResponse({ description: 'Response updated successfully' })
+  public async update(
+    @Req() request: Request,
+    @Res() response: Response,
+    @GetTenantId() tenantId: string,
     @Param('responseId', ParseUUIDPipe) responseId: string,
-    @CurrentUser('userId') userId: string,
+    @GetUserId() userId: string,
     @Body() dto: UpdateResponseDto,
   ) {
-    return this.responseService.update(tenantId, responseId, userId, dto);
+    return this.responseService.update(request, tenantId, responseId, userId, dto, response);
   }
 
-  @Post(':responseId/submit')
-  @ApiOperation({ summary: 'Submit a response (final)' })
-  @HttpCode(HttpStatus.OK)
-  async submit(
-    @Tenant() tenantId: string,
+  @UseFilters(new AllExceptionsFilter(APIID.RESPONSE_SUBMIT))
+  @Post('submit/:responseId')
+  @UsePipes(new ValidationPipe())
+  @ApiHeader({ name: 'tenantid' })
+  @ApiOkResponse({ description: 'Response submitted successfully' })
+  public async submit(
+    @Req() request: Request,
+    @Res() response: Response,
+    @GetTenantId() tenantId: string,
     @Param('responseId', ParseUUIDPipe) responseId: string,
-    @CurrentUser('userId') userId: string,
+    @GetUserId() userId: string,
     @Body() dto: SubmitResponseDto,
   ) {
-    return this.responseService.submit(tenantId, responseId, userId, dto);
+    return this.responseService.submit(request, tenantId, responseId, userId, dto, response);
   }
 }

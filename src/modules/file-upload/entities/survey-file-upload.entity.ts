@@ -7,97 +7,103 @@ import {
   Index,
 } from 'typeorm';
 
-@Entity('survey_file_uploads')
-@Index('idx_file_tenant', ['tenant_id'])
-@Index('idx_file_survey', ['survey_id'])
-@Index('idx_file_response', ['response_id'])
-@Index('idx_file_field', ['field_id'])
-@Index('idx_file_uploaded_by', ['uploaded_by'])
+@Entity({ name: 'SurveyFileUploads' })
+@Index('idx_file_tenant', ['tenantId'])
+@Index('idx_file_survey', ['surveyId'])
+@Index('idx_file_response', ['responseId'])
+@Index('idx_file_field', ['fieldId'])
+@Index('idx_file_uploaded_by', ['uploadedBy'])
 export class SurveyFileUpload {
-  @PrimaryGeneratedColumn('uuid')
-  file_id: string;
+  @PrimaryGeneratedColumn('uuid', { name: 'fileId' })
+  fileId: string;
 
-  @Column({ type: 'varchar', length: 50 })
-  tenant_id: string;
+  @Column({ name: 'tenantId', type: 'varchar', length: 50 })
+  tenantId: string;
 
-  @Column({ type: 'uuid' })
-  survey_id: string;
+  @Column({ name: 'surveyId', type: 'uuid' })
+  surveyId: string;
 
-  @Column({ type: 'uuid', nullable: true })
-  response_id: string;
+  @Column({ name: 'responseId', type: 'uuid', nullable: true })
+  responseId: string;
 
-  @Column({ type: 'varchar', length: 100 })
-  field_id: string;
+  @Column({ name: 'fieldId', type: 'varchar', length: 100 })
+  fieldId: string;
 
-  @Column({ type: 'varchar', length: 255 })
-  original_filename: string;
+  @Column({ name: 'originalFilename', type: 'varchar', length: 255 })
+  originalFilename: string;
 
-  @Column({ type: 'varchar', length: 255 })
-  stored_filename: string;
+  @Column({ name: 'storedFilename', type: 'varchar', length: 255 })
+  storedFilename: string;
 
-  @Column({ type: 'text' })
-  file_path: string;
+  @Column({ name: 'filePath', type: 'text' })
+  filePath: string;
 
-  @Column({ type: 'bigint' })
-  file_size: number;
+  @Column({ name: 'fileSize', type: 'bigint' })
+  fileSize: number;
 
-  @Column({ type: 'varchar', length: 100 })
-  mime_type: string;
+  @Column({ name: 'mimeType', type: 'varchar', length: 100 })
+  mimeType: string;
 
-  @Column({ type: 'varchar', length: 20 })
-  file_type: 'image' | 'video';
+  @Column({ name: 'fileType', type: 'varchar', length: 20 })
+  fileType: 'image' | 'video';
 
   // Image metadata
-  @Column({ type: 'integer', nullable: true })
-  image_width: number;
+  @Column({ name: 'imageWidth', type: 'integer', nullable: true })
+  imageWidth: number;
 
-  @Column({ type: 'integer', nullable: true })
-  image_height: number;
+  @Column({ name: 'imageHeight', type: 'integer', nullable: true })
+  imageHeight: number;
 
-  @Column({ type: 'text', nullable: true })
-  image_thumbnail_path: string;
+  @Column({ name: 'imageThumbnailPath', type: 'text', nullable: true })
+  imageThumbnailPath: string;
 
   // Video metadata
-  @Column({ type: 'integer', nullable: true })
-  video_duration: number;
+  @Column({ name: 'videoDuration', type: 'integer', nullable: true })
+  videoDuration: number;
 
-  @Column({ type: 'text', nullable: true })
-  video_thumbnail_path: string;
+  @Column({ name: 'videoThumbnailPath', type: 'text', nullable: true })
+  videoThumbnailPath: string;
 
-  @Column({ type: 'varchar', length: 50, nullable: true })
-  video_codec: string;
+  @Column({ name: 'videoCodec', type: 'varchar', length: 50, nullable: true })
+  videoCodec: string;
 
   // Processing status
   @Column({ type: 'varchar', length: 20, default: 'uploading' })
   status: 'uploading' | 'processing' | 'completed' | 'failed' | 'deleted';
 
-  @Column({ type: 'text', nullable: true })
-  processing_error: string;
+  @Column({ name: 'processingError', type: 'text', nullable: true })
+  processingError: string;
 
   // Security
-  @Column({ type: 'varchar', length: 20, default: 'pending' })
-  virus_scan_status: 'pending' | 'clean' | 'infected' | 'skipped';
+  @Column({ name: 'virusScanStatus', type: 'varchar', length: 20, default: 'pending' })
+  virusScanStatus: 'pending' | 'clean' | 'infected' | 'skipped';
 
-  @Column({ type: 'timestamptz', nullable: true })
-  virus_scan_at: Date;
+  @Column({ name: 'virusScanAt', type: 'timestamptz', nullable: true })
+  virusScanAt: Date;
 
   // Access control
-  @Column({ type: 'text', nullable: true })
-  access_url: string;
+  @Column({ name: 'accessUrl', type: 'text', nullable: true })
+  accessUrl: string;
 
-  @Column({ type: 'timestamptz', nullable: true })
-  access_url_expires_at: Date;
+  @Column({ name: 'accessUrlExpiresAt', type: 'timestamptz', nullable: true })
+  accessUrlExpiresAt: Date;
 
   // Audit
-  @Column({ type: 'uuid' })
-  uploaded_by: string;
+  @Column({ name: 'uploadedBy', type: 'uuid' })
+  uploadedBy: string;
 
-  @CreateDateColumn()
-  uploaded_at: Date;
+  @Column({ name: 'createdBy', type: 'uuid', nullable: true })
+  createdBy: string;
 
-  @UpdateDateColumn()
-  updated_at: Date;
+  @Column({ name: 'updatedBy', type: 'uuid', nullable: true })
+  updatedBy: string;
 
-  @Column({ type: 'timestamptz', nullable: true })
-  deleted_at: Date;
+  @CreateDateColumn({ name: 'createdAt', type: 'timestamp with time zone' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ name: 'updatedAt', type: 'timestamp with time zone' })
+  updatedAt: Date;
+
+  @Column({ name: 'deletedAt', type: 'timestamptz', nullable: true })
+  deletedAt: Date;
 }

@@ -3,52 +3,50 @@ import {
   IsOptional,
   IsObject,
   IsUUID,
-  IsEnum,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ResponseStatus } from '../entities/survey-response.entity';
 
 export class CreateResponseDto {
   @ApiProperty({ description: 'Survey ID to respond to' })
   @IsUUID()
-  survey_id: string;
+  surveyId: string;
 
-  @ApiPropertyOptional({ description: 'Response data (field_id -> value)' })
+  @ApiPropertyOptional({ description: 'Response data (fieldId -> value)' })
   @IsOptional()
   @IsObject()
-  response_data?: Record<string, any>;
+  responseData?: Record<string, any>;
 
   @ApiPropertyOptional({ description: 'Additional metadata' })
   @IsOptional()
   @IsObject()
-  response_metadata?: Record<string, any>;
+  responseMetadata?: Record<string, any>;
 }
 
 export class UpdateResponseDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsObject()
-  response_data?: Record<string, any>;
+  responseData?: Record<string, any>;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsObject()
-  file_upload_ids?: Record<string, string[]>;
+  fileUploadIds?: Record<string, string[]>;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsObject()
-  response_metadata?: Record<string, any>;
+  responseMetadata?: Record<string, any>;
 }
 
 export class SubmitResponseDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsObject()
-  response_data?: Record<string, any>;
+  responseData?: Record<string, any>;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsObject()
-  file_upload_ids?: Record<string, string[]>;
+  fileUploadIds?: Record<string, string[]>;
 }

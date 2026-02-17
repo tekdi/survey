@@ -16,69 +16,55 @@ export enum SurveyStatus {
   ARCHIVED = 'archived',
 }
 
-@Entity('survey_master')
-@Index('idx_survey_tenant', ['tenant_id'])
+@Entity({ name: 'SurveyMaster' })
+@Index('idx_survey_tenant', ['tenantId'])
 @Index('idx_survey_status', ['status'])
 export class Survey {
-  @PrimaryGeneratedColumn('uuid')
-  survey_id: string;
+  @PrimaryGeneratedColumn('uuid', { name: 'surveyId' })
+  surveyId: string;
 
-  @Column({ type: 'varchar', length: 50 })
-  tenant_id: string;
+  @Column({ name: 'tenantId', type: 'uuid' })
+  tenantId: string;
 
-  @Column({ type: 'varchar', length: 255 })
-  survey_title: string;
+  @Column({ name: 'surveyTitle', type: 'varchar', length: 255 })
+  surveyTitle: string;
 
-  @Column({ type: 'text', nullable: true })
-  survey_description: string;
+  @Column({ name: 'surveyDescription', type: 'text', nullable: true })
+  surveyDescription: string;
 
-  @Column({ type: 'enum', enum: SurveyStatus, default: SurveyStatus.DRAFT })
+  @Column({ name: 'status', type: 'varchar', length: 20, default: SurveyStatus.DRAFT })
   status: SurveyStatus;
 
-  @Column({ type: 'varchar', length: 50, nullable: true })
-  survey_type: string;
+  @Column({ name: 'surveyType', type: 'varchar', length: 50, nullable: true })
+  surveyType: string;
 
-  @Column({ type: 'jsonb', default: {} })
-  settings: {
-    allowAnonymous?: boolean;
-    requireAuth?: boolean;
-    maxResponses?: number;
-    startDate?: string;
-    endDate?: string;
-    showProgressBar?: boolean;
-    shuffleQuestions?: boolean;
-    allowMultipleSubmissions?: boolean;
-  };
+  @Column({ name: 'settings', type: 'jsonb', default: {} })
+  settings: Record<string, any>;
 
-  @Column({ type: 'jsonb', default: {} })
-  theme: {
-    primaryColor?: string;
-    backgroundColor?: string;
-    fontFamily?: string;
-    logoUrl?: string;
-  };
+  @Column({ name: 'theme', type: 'jsonb', default: {} })
+  theme: Record<string, any>;
 
-  @Column({ type: 'uuid' })
-  created_by: string;
+  @Column({ name: 'createdBy', type: 'uuid' })
+  createdBy: string;
 
-  @Column({ type: 'integer', default: 0 })
+  @Column({ name: 'updatedBy', type: 'uuid', nullable: true })
+  updatedBy: string;
+
+  @Column({ name: 'version', type: 'integer', default: 0 })
   version: number;
 
-  @OneToMany(() => SurveySection, (section) => section.survey, {
-    cascade: true,
-    eager: false,
-  })
+  @OneToMany(() => SurveySection, (section) => section.survey, { cascade: true, eager: false })
   sections: SurveySection[];
 
-  @CreateDateColumn()
-  created_at: Date;
+  @CreateDateColumn({ name: 'createdAt', type: 'timestamp with time zone' })
+  createdAt: Date;
 
-  @UpdateDateColumn()
-  updated_at: Date;
+  @UpdateDateColumn({ name: 'updatedAt', type: 'timestamp with time zone' })
+  updatedAt: Date;
 
-  @Column({ type: 'timestamptz', nullable: true })
-  published_at: Date;
+  @Column({ name: 'publishedAt', type: 'timestamp with time zone', nullable: true })
+  publishedAt: Date;
 
-  @Column({ type: 'timestamptz', nullable: true })
-  closed_at: Date;
+  @Column({ name: 'closedAt', type: 'timestamp with time zone', nullable: true })
+  closedAt: Date;
 }

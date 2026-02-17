@@ -33,108 +33,68 @@ export enum FieldType {
   MATRIX = 'matrix',
 }
 
-@Entity('survey_fields')
-@Index('idx_field_section', ['section_id'])
-@Index('idx_field_survey', ['survey_id'])
+@Entity({ name: 'SurveyFields' })
+@Index('idx_field_section', ['sectionId'])
+@Index('idx_field_survey', ['surveyId'])
 export class SurveyField {
-  @PrimaryGeneratedColumn('uuid')
-  field_id: string;
+  @PrimaryGeneratedColumn('uuid', { name: 'fieldId' })
+  fieldId: string;
 
-  @Column({ type: 'uuid' })
-  section_id: string;
+  @Column({ name: 'sectionId', type: 'uuid' })
+  sectionId: string;
 
-  @Column({ type: 'uuid' })
-  survey_id: string;
+  @Column({ name: 'surveyId', type: 'uuid' })
+  surveyId: string;
 
-  @Column({ type: 'varchar', length: 50 })
-  tenant_id: string;
+  @Column({ name: 'tenantId', type: 'uuid' })
+  tenantId: string;
 
-  @Column({ type: 'varchar', length: 100 })
-  field_name: string;
+  @Column({ name: 'fieldName', type: 'varchar', length: 100 })
+  fieldName: string;
 
-  @Column({ type: 'varchar', length: 255 })
-  field_label: string;
+  @Column({ name: 'fieldLabel', type: 'varchar', length: 255 })
+  fieldLabel: string;
 
-  @Column({ type: 'enum', enum: FieldType })
-  field_type: FieldType;
+  @Column({ name: 'fieldType', type: 'varchar', length: 30 })
+  fieldType: FieldType;
 
-  @Column({ type: 'boolean', default: false })
-  is_required: boolean;
+  @Column({ name: 'isRequired', type: 'boolean', default: false })
+  isRequired: boolean;
 
-  @Column({ type: 'integer', default: 0 })
-  display_order: number;
+  @Column({ name: 'displayOrder', type: 'integer', default: 0 })
+  displayOrder: number;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ name: 'placeholder', type: 'text', nullable: true })
   placeholder: string;
 
-  @Column({ type: 'text', nullable: true })
-  help_text: string;
+  @Column({ name: 'helpText', type: 'text', nullable: true })
+  helpText: string;
 
-  @Column({ type: 'jsonb', nullable: true })
-  default_value: any;
+  @Column({ name: 'defaultValue', type: 'jsonb', nullable: true })
+  defaultValue: any;
 
-  @Column({ type: 'jsonb', default: {} })
-  validations: {
-    required?: { value: boolean; message?: string };
-    minLength?: { value: number; message?: string };
-    maxLength?: { value: number; message?: string };
-    min?: { value: number; message?: string };
-    max?: { value: number; message?: string };
-    pattern?: { value: string; message?: string };
-    minFiles?: { value: number; message?: string };
-    maxFiles?: { value: number; message?: string };
-    maxDuration?: { value: number; message?: string };
-  };
+  @Column({ name: 'validations', type: 'jsonb', default: {} })
+  validations: Record<string, any>;
 
-  @Column({ type: 'jsonb', nullable: true })
-  data_source: {
-    type: 'static' | 'api' | 'upload';
-    options?: Array<{ label: string; value: string }>;
-    apiEndpoint?: string;
-  };
+  @Column({ name: 'dataSource', type: 'jsonb', nullable: true })
+  dataSource: Record<string, any>;
 
-  @Column({ type: 'jsonb', nullable: true })
-  upload_config: {
-    multiple?: boolean;
-    maxFiles?: number;
-    maxSize?: number;
-    allowedTypes?: string[];
-    captureMode?: 'file' | 'camera' | 'both';
-    thumbnailPreview?: boolean;
-    compressionQuality?: number;
-  };
+  @Column({ name: 'uploadConfig', type: 'jsonb', nullable: true })
+  uploadConfig: Record<string, any>;
 
-  @Column({ type: 'jsonb', default: {} })
-  ui_config: {
-    layout?: string;
-    columns?: number;
-    showFilename?: boolean;
-    showFileSize?: boolean;
-    allowReorder?: boolean;
-    showProgress?: boolean;
-    showPreview?: boolean;
-    width?: string;
-  };
+  @Column({ name: 'uiConfig', type: 'jsonb', default: {} })
+  uiConfig: Record<string, any>;
 
-  @Column({ type: 'jsonb', nullable: true })
-  conditional_logic: {
-    conditions?: Array<{
-      fieldId: string;
-      operator: string;
-      value: any;
-    }>;
-    action?: 'show' | 'hide' | 'require';
-  };
+  @Column({ name: 'conditionalLogic', type: 'jsonb', nullable: true })
+  conditionalLogic: Record<string, any>;
 
-  @ManyToOne(() => SurveySection, (section) => section.fields, {
-    onDelete: 'CASCADE',
-  })
-  @JoinColumn({ name: 'section_id' })
+  @ManyToOne(() => SurveySection, (section) => section.fields, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'sectionId' })
   section: SurveySection;
 
-  @CreateDateColumn()
-  created_at: Date;
+  @CreateDateColumn({ name: 'createdAt', type: 'timestamp with time zone' })
+  createdAt: Date;
 
-  @UpdateDateColumn()
-  updated_at: Date;
+  @UpdateDateColumn({ name: 'updatedAt', type: 'timestamp with time zone' })
+  updatedAt: Date;
 }
