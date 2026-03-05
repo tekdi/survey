@@ -14,8 +14,12 @@ async function bootstrap() {
 
   // Security
   app.use(helmet.default());
+  
+  // Get CORS origins from config
+  const corsOrigins = configService.get<string[] | string>('app.corsOrigins', '*');
+  
   app.enableCors({
-    origin: process.env.CORS_ORIGINS?.split(',') || '*',
+    origin: corsOrigins,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization', 'tenantid', 'rbac_token'],
   });

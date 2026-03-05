@@ -11,5 +11,5 @@ export default registerAs('auth', () => ({
 
   // Legacy (kept for backward compatibility)
   jwtSecret: process.env.JWT_SECRET || 'default-secret-change-me',
-  jwtExpiration: parseInt(process.env.JWT_EXPIRATION, 10) || 3600,
+  jwtExpiration: parseInt(process.env.JWT_EXPIRATION || '3600', 10),
 }));

@@ -16,9 +16,23 @@ export enum SurveyStatus {
   ARCHIVED = 'archived',
 }
 
+/**
+ * Defines what entity the survey responses are filled against.
+ * e.g. Teacher fills consent form against each "learner",
+ *      Admin fills infrastructure audit against a "center".
+ */
+export enum SurveyContextType {
+  LEARNER = 'learner',       // Fill per student/learner
+  CENTER = 'center',         // Fill per school/center
+  TEACHER = 'teacher',       // Fill per teacher
+  SELF = 'self',             // Fill for yourself (no external context)
+  NONE = 'none',             // General survey, no specific context
+}
+
 @Entity({ name: 'SurveyMaster' })
 @Index('idx_survey_tenant', ['tenantId'])
 @Index('idx_survey_status', ['status'])
+@Index('idx_survey_target_roles', ['targetRoles'])
 export class Survey {
   @PrimaryGeneratedColumn('uuid', { name: 'surveyId' })
   surveyId: string;
@@ -43,6 +57,12 @@ export class Survey {
 
   @Column({ name: 'theme', type: 'jsonb', default: {} })
   theme: Record<string, any>;
+
+  @Column({ name: 'targetRoles', type: 'jsonb', nullable: true })
+  targetRoles: string[];
+
+  @Column({ name: 'contextType', type: 'varchar', length: 30, default: SurveyContextType.NONE })
+  contextType: SurveyContextType;
 
   @Column({ name: 'createdBy', type: 'uuid' })
   createdBy: string;

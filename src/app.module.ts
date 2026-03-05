@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 
 import {
@@ -8,39 +8,49 @@ import {
   storageConfig,
   authConfig,
   redisConfig,
+  kafkaConfig,
 } from './config';
 
 import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './auth/auth.module';
+import { LoggerModule } from './common/logger/logger.module';
+import { RedisModule } from './common/cache/redis.module';
+import { KafkaModule } from './kafka/kafka.module';
 import { SurveyModule } from './modules/survey/survey.module';
 import { ResponseModule } from './modules/response/response.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { FileUploadModule } from './modules/file-upload/file-upload.module';
-import { ReportSyncModule } from './modules/report-sync/report-sync.module';
 
 @Module({
   imports: [
     // Configuration
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, databaseConfig, storageConfig, authConfig, redisConfig],
+      load: [appConfig, databaseConfig, storageConfig, authConfig, redisConfig, kafkaConfig],
       envFilePath: ['.env.local', '.env'],
     }),
 
     // Rate limiting
-    ThrottlerModule.forRoot([
-      {
-        ttl: parseInt(process.env.THROTTLE_TTL, 10) || 60000,
-        limit: parseInt(process.env.THROTTLE_LIMIT, 10) || 100,
-      },
-    ]),
+    ThrottlerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => [
+        {
+          ttl: configService.get<number>('app.throttleTtl', 60000),
+          limit: configService.get<number>('app.throttleLimit', 100),
+        },
+      ],
+    }),
 
     // Database
     DatabaseModule,
 
+    // Common modules
+    LoggerModule,
+    RedisModule,
+    KafkaModule,
+
     // Core modules
     AuthModule,
-    ReportSyncModule,
 
     // Feature modules
     SurveyModule,

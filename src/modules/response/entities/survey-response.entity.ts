@@ -18,6 +18,7 @@ export enum ResponseStatus {
 @Index('idx_response_survey', ['surveyId'])
 @Index('idx_response_respondent', ['respondentId'])
 @Index('idx_response_status', ['status'])
+@Index('idx_response_context', ['contextType', 'contextId'])
 export class SurveyResponse {
   @PrimaryGeneratedColumn('uuid', { name: 'responseId' })
   responseId: string;
@@ -30,6 +31,12 @@ export class SurveyResponse {
 
   @Column({ name: 'respondentId', type: 'uuid', nullable: true })
   respondentId: string;
+
+  @Column({ name: 'contextType', type: 'varchar', length: 30, nullable: true })
+  contextType: string;
+
+  @Column({ name: 'contextId', type: 'varchar', length: 255, nullable: true })
+  contextId: string;
 
   @Column({ type: 'enum', enum: ResponseStatus, default: ResponseStatus.IN_PROGRESS })
   status: ResponseStatus;

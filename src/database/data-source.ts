@@ -1,19 +1,24 @@
 import { DataSource, DataSourceOptions } from 'typeorm';
 import * as dotenv from 'dotenv';
+import databaseConfig from '../config/database.config';
 
+// Load environment variables for CLI usage
 dotenv.config();
+
+// Get database configuration using the same config factory
+const dbConfig = databaseConfig();
 
 export const dataSourceOptions: DataSourceOptions = {
   type: 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT, 10) || 5432,
-  username: process.env.DB_USERNAME || 'postgres',
-  password: process.env.DB_PASSWORD || 'postgres',
-  database: process.env.DB_DATABASE || 'survey_service',
+  host: dbConfig.host,
+  port: dbConfig.port,
+  username: dbConfig.username,
+  password: dbConfig.password,
+  database: dbConfig.database,
   entities: [__dirname + '/../**/*.entity{.ts,.js}'],
   migrations: [__dirname + '/migrations/*{.ts,.js}'],
   synchronize: false,
-  logging: process.env.DB_LOGGING === 'true',
+  logging: dbConfig.logging,
 };
 
 const dataSource = new DataSource(dataSourceOptions);

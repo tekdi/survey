@@ -29,7 +29,7 @@ export class PaginationDto {
   sortOrder?: 'ASC' | 'DESC' = 'DESC';
 
   get skip(): number {
-    return (this.page - 1) * this.limit;
+    return ((this.page || 1) - 1) * (this.limit || 20);
   }
 }
 

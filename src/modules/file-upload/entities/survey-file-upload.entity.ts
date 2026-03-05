@@ -17,7 +17,7 @@ export class SurveyFileUpload {
   @PrimaryGeneratedColumn('uuid', { name: 'fileId' })
   fileId: string;
 
-  @Column({ name: 'tenantId', type: 'varchar', length: 50 })
+  @Column({ name: 'tenantId', type: 'uuid' })
   tenantId: string;
 
   @Column({ name: 'surveyId', type: 'uuid' })
@@ -47,7 +47,7 @@ export class SurveyFileUpload {
   @Column({ name: 'fileType', type: 'varchar', length: 20 })
   fileType: 'image' | 'video';
 
-  // Image metadata
+  // Optional: Image metadata
   @Column({ name: 'imageWidth', type: 'integer', nullable: true })
   imageWidth: number;
 
@@ -57,46 +57,23 @@ export class SurveyFileUpload {
   @Column({ name: 'imageThumbnailPath', type: 'text', nullable: true })
   imageThumbnailPath: string;
 
-  // Video metadata
+  // Optional: Video metadata
   @Column({ name: 'videoDuration', type: 'integer', nullable: true })
   videoDuration: number;
 
   @Column({ name: 'videoThumbnailPath', type: 'text', nullable: true })
   videoThumbnailPath: string;
 
-  @Column({ name: 'videoCodec', type: 'varchar', length: 50, nullable: true })
-  videoCodec: string;
-
-  // Processing status
-  @Column({ type: 'varchar', length: 20, default: 'uploading' })
+  // Simple status tracking
+  @Column({ type: 'varchar', length: 20, default: 'completed' })
   status: 'uploading' | 'processing' | 'completed' | 'failed' | 'deleted';
 
   @Column({ name: 'processingError', type: 'text', nullable: true })
   processingError: string;
 
-  // Security
-  @Column({ name: 'virusScanStatus', type: 'varchar', length: 20, default: 'pending' })
-  virusScanStatus: 'pending' | 'clean' | 'infected' | 'skipped';
-
-  @Column({ name: 'virusScanAt', type: 'timestamptz', nullable: true })
-  virusScanAt: Date;
-
-  // Access control
-  @Column({ name: 'accessUrl', type: 'text', nullable: true })
-  accessUrl: string;
-
-  @Column({ name: 'accessUrlExpiresAt', type: 'timestamptz', nullable: true })
-  accessUrlExpiresAt: Date;
-
   // Audit
   @Column({ name: 'uploadedBy', type: 'uuid' })
   uploadedBy: string;
-
-  @Column({ name: 'createdBy', type: 'uuid', nullable: true })
-  createdBy: string;
-
-  @Column({ name: 'updatedBy', type: 'uuid', nullable: true })
-  updatedBy: string;
 
   @CreateDateColumn({ name: 'createdAt', type: 'timestamp with time zone' })
   createdAt: Date;

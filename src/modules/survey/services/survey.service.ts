@@ -3,12 +3,11 @@ import {
   NotFoundException,
   BadRequestException,
   HttpStatus,
-  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { Request, Response } from 'express';
-import { Survey, SurveyStatus } from '../entities/survey.entity';
+import { Survey, SurveyStatus, SurveyContextType } from '../entities/survey.entity';
 import { SurveySection } from '../entities/survey-section.entity';
 import { SurveyField } from '../entities/survey-field.entity';
 import { CreateSurveyDto } from '../dto/create-survey.dto';
@@ -17,12 +16,12 @@ import { PaginationDto, PaginatedResponseDto } from '@/common/dto/pagination.dto
 import { APIResponse } from '@/common/responses/api-response';
 import { APIID } from '@/common/utils/api-id.config';
 import { RESPONSE_MESSAGES } from '@/common/utils/response-messages';
-import { ReportSyncService } from '@/modules/report-sync/services/report-sync.service';
+import { KafkaService } from '@/kafka/kafka.service';
+import { LoggerService } from '@/common/logger/logger.service';
+import { DataSourceService } from './data-source.service';
 
 @Injectable()
 export class SurveyService {
-  private readonly logger = new Logger(SurveyService.name);
-
   constructor(
     @InjectRepository(Survey)
     private readonly surveyRepo: Repository<Survey>,
@@ -31,7 +30,9 @@ export class SurveyService {
     @InjectRepository(SurveyField)
     private readonly fieldRepo: Repository<SurveyField>,
     private readonly dataSource: DataSource,
-    private readonly reportSyncService: ReportSyncService,
+    private readonly kafkaService: KafkaService,
+    private readonly loggerService: LoggerService,
+    private readonly dataSourceService: DataSourceService,
   ) {}
 
   async create(
@@ -55,6 +56,8 @@ export class SurveyService {
           surveyType: dto.survey_type,
           settings: dto.settings || {},
           theme: dto.theme || {},
+          targetRoles: dto.target_roles || null,
+          contextType: dto.context_type || SurveyContextType.NONE,
           createdBy: userId,
           updatedBy: userId,
           status: SurveyStatus.DRAFT,
@@ -106,15 +109,23 @@ export class SurveyService {
 
         const result = await this.getSurveyWithRelations(tenantId, savedSurvey.surveyId);
 
-        // Sync to reporting DB
-        this.reportSyncService
-          .syncSurveyEvent('SURVEY_CREATED', result)
-          .catch((err) => this.logger.error('Report sync failed', err.stack));
+        // Publish event to Kafka
+        this.kafkaService
+          .publishSurveyEvent('created', result, savedSurvey.surveyId)
+          .catch((err) => 
+            this.loggerService.error('Kafka publish failed', err.message, apiId, userId)
+          );
+
+        this.loggerService.log(
+          RESPONSE_MESSAGES.SURVEY_CREATE_SUCCESS,
+          apiId,
+          userId,
+        );
 
         return APIResponse.success(
           response,
           apiId,
-          result,
+          { data: result },
           HttpStatus.CREATED,
           RESPONSE_MESSAGES.SURVEY_CREATE_SUCCESS,
         );
@@ -125,12 +136,18 @@ export class SurveyService {
         await queryRunner.release();
       }
     } catch (e) {
-      this.logger.error(`Survey create failed: ${e.message}`, e.stack);
+      const errorMessage = e.message || 'Internal Server Error';
+      this.loggerService.error(
+        'INTERNAL_SERVER_ERROR',
+        errorMessage,
+        apiId,
+        userId,
+      );
       return APIResponse.error(
         response,
         apiId,
-        e.message,
-        e.name || 'Bad Request',
+        errorMessage,
+        e.name || 'BAD_REQUEST',
         e.status || HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -140,37 +157,71 @@ export class SurveyService {
     request: Request,
     tenantId: string,
     pagination: PaginationDto,
+    userRoles: string[],
     response: Response,
   ) {
     const apiId = APIID.SURVEY_LIST;
     try {
-      const [surveys, total] = await this.surveyRepo.findAndCount({
-        where: { tenantId },
-        order: { [pagination.sortBy]: pagination.sortOrder },
-        skip: pagination.skip,
-        take: pagination.limit,
-      });
+      const sortBy = pagination.sortBy || 'createdAt';
+      const sortOrder = pagination.sortOrder || 'DESC';
+      const page = pagination.page || 1;
+      const limit = pagination.limit || 20;
+
+      const isAdmin = userRoles.includes('admin');
+
+      let queryBuilder = this.surveyRepo
+        .createQueryBuilder('survey')
+        .where('survey.tenantId = :tenantId', { tenantId });
+
+      // Admin sees all surveys; non-admin sees only surveys targeted to their role (or with no target restriction)
+      if (!isAdmin && userRoles.length > 0) {
+        // Check if ANY of the user's roles exist in survey.targetRoles JSONB array
+        // In TypeORM, ?? escapes the literal ? character for PostgreSQL's ?| operator
+        queryBuilder = queryBuilder.andWhere(
+          '(survey."targetRoles" IS NULL OR survey."targetRoles" ??| ARRAY[:...userRoles])',
+          { userRoles },
+        );
+      } else if (!isAdmin) {
+        // No roles at all — only show surveys with no role restriction
+        queryBuilder = queryBuilder.andWhere('survey."targetRoles" IS NULL');
+      }
+
+      const [surveys, total] = await queryBuilder
+        .orderBy(`survey.${sortBy}`, sortOrder)
+        .skip(pagination.skip)
+        .take(limit)
+        .getManyAndCount();
 
       const result = new PaginatedResponseDto(
         surveys,
         total,
-        pagination.page,
-        pagination.limit,
+        page,
+        limit,
+      );
+
+      this.loggerService.log(
+        RESPONSE_MESSAGES.SURVEY_LIST_SUCCESS,
+        apiId,
       );
 
       return APIResponse.success(
         response,
         apiId,
-        result,
+        { data: result },
         HttpStatus.OK,
         RESPONSE_MESSAGES.SURVEY_LIST_SUCCESS,
       );
     } catch (e) {
-      this.logger.error(`Survey list failed: ${e.message}`, e.stack);
+      const errorMessage = e.message || 'Internal Server Error';
+      this.loggerService.error(
+        'INTERNAL_SERVER_ERROR',
+        errorMessage,
+        apiId,
+      );
       return APIResponse.error(
         response,
         apiId,
-        e.message,
+        errorMessage,
         e.name || 'Internal Server Error',
         e.status || HttpStatus.INTERNAL_SERVER_ERROR,
       );
@@ -187,20 +238,30 @@ export class SurveyService {
     try {
       const survey = await this.getSurveyWithRelations(tenantId, surveyId);
 
+      this.loggerService.log(
+        RESPONSE_MESSAGES.SURVEY_READ_SUCCESS,
+        apiId,
+      );
+
       return APIResponse.success(
         response,
         apiId,
-        survey,
+        { data: survey },
         HttpStatus.OK,
         RESPONSE_MESSAGES.SURVEY_READ_SUCCESS,
       );
     } catch (e) {
-      this.logger.error(`Survey read failed: ${e.message}`, e.stack);
+      const errorMessage = e.message || 'Internal Server Error';
+      this.loggerService.error(
+        'INTERNAL_SERVER_ERROR',
+        errorMessage,
+        apiId,
+      );
       const status =
         e instanceof NotFoundException
           ? HttpStatus.NOT_FOUND
           : e.status || HttpStatus.INTERNAL_SERVER_ERROR;
-      return APIResponse.error(response, apiId, e.message, e.name, status);
+      return APIResponse.error(response, apiId, errorMessage, e.name, status);
     }
   }
 
@@ -219,6 +280,11 @@ export class SurveyService {
         survey.status === SurveyStatus.CLOSED ||
         survey.status === SurveyStatus.ARCHIVED
       ) {
+        this.loggerService.error(
+          'BAD_REQUEST',
+          RESPONSE_MESSAGES.SURVEY_CANNOT_UPDATE,
+          apiId,
+        );
         throw new BadRequestException(RESPONSE_MESSAGES.SURVEY_CANNOT_UPDATE);
       }
 
@@ -228,29 +294,43 @@ export class SurveyService {
         surveyType: dto.survey_type ?? survey.surveyType,
         settings: dto.settings ?? survey.settings,
         theme: dto.theme ?? survey.theme,
+        targetRoles: dto.target_roles !== undefined ? (dto.target_roles || null) : survey.targetRoles,
+        contextType: dto.context_type ?? survey.contextType,
         version: survey.version + 1,
       });
 
       await this.surveyRepo.save(survey);
       const result = await this.getSurveyWithRelations(tenantId, surveyId);
 
-      this.reportSyncService
-        .syncSurveyEvent('SURVEY_UPDATED', result)
-        .catch((err) => this.logger.error('Report sync failed', err.stack));
+      this.kafkaService
+        .publishSurveyEvent('updated', result, surveyId)
+        .catch((err) => 
+          this.loggerService.error('Kafka publish failed', err.message, apiId)
+        );
+
+      this.loggerService.log(
+        RESPONSE_MESSAGES.SURVEY_UPDATE_SUCCESS,
+        apiId,
+      );
 
       return APIResponse.success(
         response,
         apiId,
-        result,
+        { data: result },
         HttpStatus.OK,
         RESPONSE_MESSAGES.SURVEY_UPDATE_SUCCESS,
       );
     } catch (e) {
-      this.logger.error(`Survey update failed: ${e.message}`, e.stack);
+      const errorMessage = e.message || 'Internal Server Error';
+      this.loggerService.error(
+        'INTERNAL_SERVER_ERROR',
+        errorMessage,
+        apiId,
+      );
       return APIResponse.error(
         response,
         apiId,
-        e.message,
+        errorMessage,
         e.name,
         e.status || HttpStatus.INTERNAL_SERVER_ERROR,
       );
@@ -268,10 +348,20 @@ export class SurveyService {
       const survey = await this.getSurveyWithRelations(tenantId, surveyId);
 
       if (survey.status !== SurveyStatus.DRAFT) {
+        this.loggerService.error(
+          'BAD_REQUEST',
+          RESPONSE_MESSAGES.SURVEY_CANNOT_PUBLISH,
+          apiId,
+        );
         throw new BadRequestException(RESPONSE_MESSAGES.SURVEY_CANNOT_PUBLISH);
       }
 
       if (!survey.sections?.length) {
+        this.loggerService.error(
+          'BAD_REQUEST',
+          RESPONSE_MESSAGES.SURVEY_NEEDS_SECTION,
+          apiId,
+        );
         throw new BadRequestException(RESPONSE_MESSAGES.SURVEY_NEEDS_SECTION);
       }
 
@@ -279,6 +369,11 @@ export class SurveyService {
         (s) => s.fields && s.fields.length > 0,
       );
       if (!hasFields) {
+        this.loggerService.error(
+          'BAD_REQUEST',
+          RESPONSE_MESSAGES.SURVEY_NEEDS_FIELD,
+          apiId,
+        );
         throw new BadRequestException(RESPONSE_MESSAGES.SURVEY_NEEDS_FIELD);
       }
 
@@ -286,23 +381,35 @@ export class SurveyService {
       survey.publishedAt = new Date();
       await this.surveyRepo.save(survey);
 
-      this.reportSyncService
-        .syncSurveyEvent('SURVEY_PUBLISHED', survey)
-        .catch((err) => this.logger.error('Report sync failed', err.stack));
+      this.kafkaService
+        .publishSurveyEvent('published', survey, surveyId)
+        .catch((err) => 
+          this.loggerService.error('Kafka publish failed', err.message, apiId)
+        );
+
+      this.loggerService.log(
+        RESPONSE_MESSAGES.SURVEY_PUBLISH_SUCCESS,
+        apiId,
+      );
 
       return APIResponse.success(
         response,
         apiId,
-        survey,
+        { data: survey },
         HttpStatus.OK,
         RESPONSE_MESSAGES.SURVEY_PUBLISH_SUCCESS,
       );
     } catch (e) {
-      this.logger.error(`Survey publish failed: ${e.message}`, e.stack);
+      const errorMessage = e.message || 'Internal Server Error';
+      this.loggerService.error(
+        'INTERNAL_SERVER_ERROR',
+        errorMessage,
+        apiId,
+      );
       return APIResponse.error(
         response,
         apiId,
-        e.message,
+        errorMessage,
         e.name,
         e.status || HttpStatus.INTERNAL_SERVER_ERROR,
       );
@@ -320,6 +427,11 @@ export class SurveyService {
       const survey = await this.getSurveyWithRelations(tenantId, surveyId);
 
       if (survey.status !== SurveyStatus.PUBLISHED) {
+        this.loggerService.error(
+          'BAD_REQUEST',
+          RESPONSE_MESSAGES.SURVEY_CANNOT_CLOSE,
+          apiId,
+        );
         throw new BadRequestException(RESPONSE_MESSAGES.SURVEY_CANNOT_CLOSE);
       }
 
@@ -327,22 +439,35 @@ export class SurveyService {
       survey.closedAt = new Date();
       await this.surveyRepo.save(survey);
 
-      this.reportSyncService
-        .syncSurveyEvent('SURVEY_CLOSED', survey)
-        .catch((err) => this.logger.error('Report sync failed', err.stack));
+      this.kafkaService
+        .publishSurveyEvent('closed', survey, surveyId)
+        .catch((err) => 
+          this.loggerService.error('Kafka publish failed', err.message, apiId)
+        );
+
+      this.loggerService.log(
+        RESPONSE_MESSAGES.SURVEY_CLOSE_SUCCESS,
+        apiId,
+      );
 
       return APIResponse.success(
         response,
         apiId,
-        survey,
+        { data: survey },
         HttpStatus.OK,
         RESPONSE_MESSAGES.SURVEY_CLOSE_SUCCESS,
       );
     } catch (e) {
+      const errorMessage = e.message || 'Internal Server Error';
+      this.loggerService.error(
+        'INTERNAL_SERVER_ERROR',
+        errorMessage,
+        apiId,
+      );
       return APIResponse.error(
         response,
         apiId,
-        e.message,
+        errorMessage,
         e.name,
         e.status || HttpStatus.INTERNAL_SERVER_ERROR,
       );
@@ -360,27 +485,45 @@ export class SurveyService {
       const survey = await this.getSurveyWithRelations(tenantId, surveyId);
 
       if (survey.status === SurveyStatus.PUBLISHED) {
+        this.loggerService.error(
+          'BAD_REQUEST',
+          RESPONSE_MESSAGES.SURVEY_CANNOT_DELETE,
+          apiId,
+        );
         throw new BadRequestException(RESPONSE_MESSAGES.SURVEY_CANNOT_DELETE);
       }
 
       await this.surveyRepo.remove(survey);
 
-      this.reportSyncService
-        .syncSurveyEvent('SURVEY_DELETED', { surveyId, tenantId })
-        .catch((err) => this.logger.error('Report sync failed', err.stack));
+      this.kafkaService
+        .publishSurveyEvent('deleted', { surveyId, tenantId }, surveyId)
+        .catch((err) => 
+          this.loggerService.error('Kafka publish failed', err.message, apiId)
+        );
+
+      this.loggerService.log(
+        RESPONSE_MESSAGES.SURVEY_DELETE_SUCCESS,
+        apiId,
+      );
 
       return APIResponse.success(
         response,
         apiId,
-        { surveyId },
+        { data: { surveyId } },
         HttpStatus.OK,
         RESPONSE_MESSAGES.SURVEY_DELETE_SUCCESS,
       );
     } catch (e) {
+      const errorMessage = e.message || 'Internal Server Error';
+      this.loggerService.error(
+        'INTERNAL_SERVER_ERROR',
+        errorMessage,
+        apiId,
+      );
       return APIResponse.error(
         response,
         apiId,
-        e.message,
+        errorMessage,
         e.name,
         e.status || HttpStatus.INTERNAL_SERVER_ERROR,
       );
@@ -404,6 +547,8 @@ export class SurveyService {
         survey_type: original.surveyType,
         settings: original.settings,
         theme: original.theme,
+        target_roles: original.targetRoles,
+        context_type: original.contextType,
         sections: original.sections?.map((section) => ({
           section_title: section.sectionTitle,
           section_description: section.sectionDescription,
@@ -431,10 +576,17 @@ export class SurveyService {
       // Delegate to create, which handles its own response
       return this.create(request, tenantId, userId, dto, response);
     } catch (e) {
+      const errorMessage = e.message || 'Internal Server Error';
+      this.loggerService.error(
+        'INTERNAL_SERVER_ERROR',
+        errorMessage,
+        apiId,
+        userId,
+      );
       return APIResponse.error(
         response,
         apiId,
-        e.message,
+        errorMessage,
         e.name,
         e.status || HttpStatus.INTERNAL_SERVER_ERROR,
       );
@@ -464,6 +616,59 @@ export class SurveyService {
       throw new NotFoundException(RESPONSE_MESSAGES.SURVEY_NOT_FOUND);
     }
 
+    // Populate field options from external data sources
+    await this.populateFieldOptions(survey);
+
     return survey;
+  }
+
+  /**
+   * Populate options for fields that have external data sources
+   */
+  private async populateFieldOptions(survey: Survey): Promise<void> {
+    if (!survey.sections || survey.sections.length === 0) {
+      return;
+    }
+
+    const fieldsWithDataSource: Array<{
+      fieldId: string;
+      dataSource: any;
+    }> = [];
+
+    // Collect all fields with data sources
+    for (const section of survey.sections) {
+      if (section.fields && section.fields.length > 0) {
+        for (const field of section.fields) {
+          if (field.dataSource) {
+            fieldsWithDataSource.push({
+              fieldId: field.fieldId,
+              dataSource: field.dataSource,
+            });
+          }
+        }
+      }
+    }
+
+    if (fieldsWithDataSource.length === 0) {
+      return;
+    }
+
+    // Fetch options for all fields in parallel
+    const optionsMap = await this.dataSourceService.fetchMultipleFieldOptions(
+      fieldsWithDataSource,
+    );
+
+    // Populate the options back to the fields
+    for (const section of survey.sections) {
+      if (section.fields) {
+        for (const field of section.fields) {
+          const options = optionsMap.get(field.fieldId);
+          if (options) {
+            // Add options to the field object (temporary, not persisted)
+            (field as any).options = options;
+          }
+        }
+      }
+    }
   }
 }

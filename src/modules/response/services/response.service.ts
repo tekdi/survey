@@ -4,7 +4,6 @@ import {
   BadRequestException,
   ForbiddenException,
   HttpStatus,
-  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -23,19 +22,18 @@ import { APIResponse } from '@/common/responses/api-response';
 import { APIID } from '@/common/utils/api-id.config';
 import { RESPONSE_MESSAGES } from '@/common/utils/response-messages';
 import { SurveyService } from '@/modules/survey/services/survey.service';
-import { SurveyStatus } from '@/modules/survey/entities/survey.entity';
-import { ReportSyncService } from '@/modules/report-sync/services/report-sync.service';
-import { SurveyEventType } from '@/modules/report-sync/config/report-events.config';
+import { SurveyStatus, SurveyContextType } from '@/modules/survey/entities/survey.entity';
+import { KafkaService } from '@/kafka/kafka.service';
+import { LoggerService } from '@/common/logger/logger.service';
 
 @Injectable()
 export class ResponseService {
-  private readonly logger = new Logger(ResponseService.name);
-
   constructor(
     @InjectRepository(SurveyResponse)
     private readonly responseRepo: Repository<SurveyResponse>,
     private readonly surveyService: SurveyService,
-    private readonly reportSyncService: ReportSyncService,
+    private readonly kafkaService: KafkaService,
+    private readonly loggerService: LoggerService,
   ) {}
 
   async create(
@@ -50,20 +48,48 @@ export class ResponseService {
       // Verify survey exists and is published
       const survey = await this.surveyService.getSurveyWithRelations(tenantId, dto.surveyId);
       if (survey.status !== SurveyStatus.PUBLISHED) {
+        this.loggerService.error(
+          'BAD_REQUEST',
+          RESPONSE_MESSAGES.RESPONSE_NOT_ACCEPTING,
+          apiId,
+          userId,
+        );
         throw new BadRequestException(RESPONSE_MESSAGES.RESPONSE_NOT_ACCEPTING);
+      }
+
+      // Validate contextId is provided when survey requires a context entity
+      const requiresContext = survey.contextType && 
+        survey.contextType !== SurveyContextType.NONE && 
+        survey.contextType !== SurveyContextType.SELF;
+
+      if (requiresContext && !dto.contextId) {
+        throw new BadRequestException(
+          `This survey requires a contextId (context_type: ${survey.contextType}). Please provide the ID of the ${survey.contextType} this response is for.`,
+        );
       }
 
       // Check if multiple submissions allowed
       if (!survey.settings?.allowMultipleSubmissions) {
+        const duplicateWhere: any = {
+          tenantId,
+          surveyId: dto.surveyId,
+          respondentId: userId,
+          status: ResponseStatus.SUBMITTED,
+        };
+        // If survey has context, check duplicate per context entity
+        if (requiresContext && dto.contextId) {
+          duplicateWhere.contextId = dto.contextId;
+        }
         const existing = await this.responseRepo.findOne({
-          where: {
-            tenantId,
-            surveyId: dto.surveyId,
-            respondentId: userId,
-            status: ResponseStatus.SUBMITTED,
-          },
+          where: duplicateWhere,
         });
         if (existing) {
+          this.loggerService.error(
+            'BAD_REQUEST',
+            RESPONSE_MESSAGES.RESPONSE_DUPLICATE_SUBMISSION,
+            apiId,
+            userId,
+          );
           throw new BadRequestException(RESPONSE_MESSAGES.RESPONSE_DUPLICATE_SUBMISSION);
         }
       }
@@ -72,6 +98,8 @@ export class ResponseService {
         tenantId,
         surveyId: dto.surveyId,
         respondentId: userId,
+        contextType: survey.contextType || null,
+        contextId: dto.contextId || null,
         responseData: dto.responseData || {},
         responseMetadata: {
           ...dto.responseMetadata,
@@ -84,31 +112,45 @@ export class ResponseService {
 
       const saved = await this.responseRepo.save(surveyResponse);
 
-      // Sync to reporting DB
-      this.reportSyncService
-        .syncResponseEvent(SurveyEventType.RESPONSE_STARTED, {
+      // Publish event to Kafka
+      this.kafkaService
+        .publishResponseEvent('started', {
           responseId: saved.responseId,
           surveyId: saved.surveyId,
           tenantId: saved.tenantId,
           respondentId: saved.respondentId,
           status: saved.status,
-        })
-        .catch((err) => this.logger.error('Report sync failed', err.stack));
+        }, saved.responseId)
+        .catch((err) => 
+          this.loggerService.error('Kafka publish failed', err.message, apiId, userId)
+        );
+
+      this.loggerService.log(
+        RESPONSE_MESSAGES.RESPONSE_CREATE_SUCCESS,
+        apiId,
+        userId,
+      );
 
       return APIResponse.success(
         response,
         apiId,
-        saved,
+        { data: saved },
         HttpStatus.CREATED,
         RESPONSE_MESSAGES.RESPONSE_CREATE_SUCCESS,
       );
     } catch (e) {
-      this.logger.error(`Response create failed: ${e.message}`, e.stack);
+      const errorMessage = e.message || 'Internal Server Error';
+      this.loggerService.error(
+        'INTERNAL_SERVER_ERROR',
+        errorMessage,
+        apiId,
+        userId,
+      );
       const status =
         e instanceof BadRequestException
           ? HttpStatus.BAD_REQUEST
           : e.status || HttpStatus.INTERNAL_SERVER_ERROR;
-      return APIResponse.error(response, apiId, e.message, e.name || 'Bad Request', status);
+      return APIResponse.error(response, apiId, errorMessage, e.name || 'BAD_REQUEST', status);
     }
   }
 
@@ -136,19 +178,29 @@ export class ResponseService {
 
       const result = new PaginatedResponseDto(responses, total, page, limit);
 
+      this.loggerService.log(
+        RESPONSE_MESSAGES.RESPONSE_LIST_SUCCESS,
+        apiId,
+      );
+
       return APIResponse.success(
         response,
         apiId,
-        result,
+        { data: result },
         HttpStatus.OK,
         RESPONSE_MESSAGES.RESPONSE_LIST_SUCCESS,
       );
     } catch (e) {
-      this.logger.error(`Response list failed: ${e.message}`, e.stack);
+      const errorMessage = e.message || 'Internal Server Error';
+      this.loggerService.error(
+        'INTERNAL_SERVER_ERROR',
+        errorMessage,
+        apiId,
+      );
       return APIResponse.error(
         response,
         apiId,
-        e.message,
+        errorMessage,
         e.name || 'Internal Server Error',
         e.status || HttpStatus.INTERNAL_SERVER_ERROR,
       );
@@ -165,20 +217,30 @@ export class ResponseService {
     try {
       const surveyResponse = await this.getResponseById(tenantId, responseId);
 
+      this.loggerService.log(
+        RESPONSE_MESSAGES.RESPONSE_READ_SUCCESS,
+        apiId,
+      );
+
       return APIResponse.success(
         response,
         apiId,
-        surveyResponse,
+        { data: surveyResponse },
         HttpStatus.OK,
         RESPONSE_MESSAGES.RESPONSE_READ_SUCCESS,
       );
     } catch (e) {
-      this.logger.error(`Response read failed: ${e.message}`, e.stack);
+      const errorMessage = e.message || 'Internal Server Error';
+      this.loggerService.error(
+        'INTERNAL_SERVER_ERROR',
+        errorMessage,
+        apiId,
+      );
       const status =
         e instanceof NotFoundException
           ? HttpStatus.NOT_FOUND
           : e.status || HttpStatus.INTERNAL_SERVER_ERROR;
-      return APIResponse.error(response, apiId, e.message, e.name, status);
+      return APIResponse.error(response, apiId, errorMessage, e.name, status);
     }
   }
 
@@ -195,10 +257,22 @@ export class ResponseService {
       const surveyResponse = await this.getResponseById(tenantId, responseId);
 
       if (surveyResponse.status === ResponseStatus.SUBMITTED) {
+        this.loggerService.error(
+          'BAD_REQUEST',
+          RESPONSE_MESSAGES.RESPONSE_CANNOT_UPDATE,
+          apiId,
+          userId,
+        );
         throw new BadRequestException(RESPONSE_MESSAGES.RESPONSE_CANNOT_UPDATE);
       }
 
       if (surveyResponse.respondentId !== userId) {
+        this.loggerService.error(
+          'FORBIDDEN',
+          'You can only update your own response',
+          apiId,
+          userId,
+        );
         throw new ForbiddenException('You can only update your own response');
       }
 
@@ -227,32 +301,46 @@ export class ResponseService {
       surveyResponse.updatedBy = userId;
       const saved = await this.responseRepo.save(surveyResponse);
 
-      // Sync to reporting DB
-      this.reportSyncService
-        .syncResponseEvent(SurveyEventType.RESPONSE_UPDATED, {
+      // Publish event to Kafka
+      this.kafkaService
+        .publishResponseEvent('updated', {
           responseId: saved.responseId,
           surveyId: saved.surveyId,
           tenantId: saved.tenantId,
           status: saved.status,
-        })
-        .catch((err) => this.logger.error('Report sync failed', err.stack));
+        }, saved.responseId)
+        .catch((err) => 
+          this.loggerService.error('Kafka publish failed', err.message, apiId, userId)
+        );
+
+      this.loggerService.log(
+        RESPONSE_MESSAGES.RESPONSE_UPDATE_SUCCESS,
+        apiId,
+        userId,
+      );
 
       return APIResponse.success(
         response,
         apiId,
-        saved,
+        { data: saved },
         HttpStatus.OK,
         RESPONSE_MESSAGES.RESPONSE_UPDATE_SUCCESS,
       );
     } catch (e) {
-      this.logger.error(`Response update failed: ${e.message}`, e.stack);
+      const errorMessage = e.message || 'Internal Server Error';
+      this.loggerService.error(
+        'INTERNAL_SERVER_ERROR',
+        errorMessage,
+        apiId,
+        userId,
+      );
       const status =
         e instanceof BadRequestException
           ? HttpStatus.BAD_REQUEST
           : e instanceof ForbiddenException
             ? HttpStatus.FORBIDDEN
             : e.status || HttpStatus.INTERNAL_SERVER_ERROR;
-      return APIResponse.error(response, apiId, e.message, e.name, status);
+      return APIResponse.error(response, apiId, errorMessage, e.name, status);
     }
   }
 
@@ -269,10 +357,22 @@ export class ResponseService {
       const surveyResponse = await this.getResponseById(tenantId, responseId);
 
       if (surveyResponse.status === ResponseStatus.SUBMITTED) {
+        this.loggerService.error(
+          'BAD_REQUEST',
+          RESPONSE_MESSAGES.RESPONSE_ALREADY_SUBMITTED,
+          apiId,
+          userId,
+        );
         throw new BadRequestException(RESPONSE_MESSAGES.RESPONSE_ALREADY_SUBMITTED);
       }
 
       if (surveyResponse.respondentId !== userId) {
+        this.loggerService.error(
+          'FORBIDDEN',
+          'You can only submit your own response',
+          apiId,
+          userId,
+        );
         throw new ForbiddenException('You can only submit your own response');
       }
 
@@ -310,9 +410,9 @@ export class ResponseService {
 
       const saved = await this.responseRepo.save(surveyResponse);
 
-      // Sync to reporting DB
-      this.reportSyncService
-        .syncResponseEvent(SurveyEventType.RESPONSE_SUBMITTED, {
+      // Publish event to Kafka
+      this.kafkaService
+        .publishResponseEvent('submitted', {
           responseId: saved.responseId,
           surveyId: saved.surveyId,
           tenantId: saved.tenantId,
@@ -320,25 +420,39 @@ export class ResponseService {
           status: saved.status,
           responseData: saved.responseData,
           submittedAt: saved.submittedAt,
-        })
-        .catch((err) => this.logger.error('Report sync failed', err.stack));
+        }, saved.responseId)
+        .catch((err) => 
+          this.loggerService.error('Kafka publish failed', err.message, apiId, userId)
+        );
+
+      this.loggerService.log(
+        RESPONSE_MESSAGES.RESPONSE_SUBMIT_SUCCESS,
+        apiId,
+        userId,
+      );
 
       return APIResponse.success(
         response,
         apiId,
-        saved,
+        { data: saved },
         HttpStatus.OK,
         RESPONSE_MESSAGES.RESPONSE_SUBMIT_SUCCESS,
       );
     } catch (e) {
-      this.logger.error(`Response submit failed: ${e.message}`, e.stack);
+      const errorMessage = e.message || 'Internal Server Error';
+      this.loggerService.error(
+        'INTERNAL_SERVER_ERROR',
+        errorMessage,
+        apiId,
+        userId,
+      );
       const status =
         e instanceof BadRequestException
           ? HttpStatus.BAD_REQUEST
           : e instanceof ForbiddenException
             ? HttpStatus.FORBIDDEN
             : e.status || HttpStatus.INTERNAL_SERVER_ERROR;
-      return APIResponse.error(response, apiId, e.message, e.name, status);
+      return APIResponse.error(response, apiId, errorMessage, e.name, status);
     }
   }
 
@@ -372,19 +486,29 @@ export class ResponseService {
         averageTimeSpent: 0,
       };
 
+      this.loggerService.log(
+        RESPONSE_MESSAGES.RESPONSE_STATS_SUCCESS,
+        apiId,
+      );
+
       return APIResponse.success(
         response,
         apiId,
-        result,
+        { data: result },
         HttpStatus.OK,
         RESPONSE_MESSAGES.RESPONSE_STATS_SUCCESS,
       );
     } catch (e) {
-      this.logger.error(`Response stats failed: ${e.message}`, e.stack);
+      const errorMessage = e.message || 'Internal Server Error';
+      this.loggerService.error(
+        'INTERNAL_SERVER_ERROR',
+        errorMessage,
+        apiId,
+      );
       return APIResponse.error(
         response,
         apiId,
-        e.message,
+        errorMessage,
         e.name || 'Internal Server Error',
         e.status || HttpStatus.INTERNAL_SERVER_ERROR,
       );

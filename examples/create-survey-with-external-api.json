@@ -1,0 +1,80 @@
+{
+  "survey_title": "Customer Feedback Survey with External Data",
+  "survey_description": "Survey demonstrating external API integration for field options",
+  "survey_type": "feedback",
+  "sections": [
+    {
+      "section_title": "Basic Information",
+      "section_description": "Please provide your basic information",
+      "display_order": 0,
+      "fields": [
+        {
+          "field_name": "country",
+          "field_label": "Select Your Country",
+          "field_type": "select",
+          "is_required": true,
+          "placeholder": "Choose a country",
+          "help_text": "Select your country from the list",
+          "data_source": {
+            "type": "api",
+            "api": {
+              "url": "https://restcountries.com/v3.1/all",
+              "method": "GET",
+              "mapping": {
+                "valueField": "cca2",
+                "labelField": "name.common"
+              }
+            },
+            "cache": {
+              "enabled": true,
+              "ttl": 604800
+            },
+            "fallback": [
+              { "value": "US", "label": "United States" },
+              { "value": "UK", "label": "United Kingdom" }
+            ]
+          }
+        },
+        {
+          "field_name": "industry",
+          "field_label": "Your Industry",
+          "field_type": "select",
+          "is_required": false,
+          "data_source": {
+            "type": "static",
+            "options": [
+              { "value": "tech", "label": "Technology" },
+              { "value": "finance", "label": "Finance" },
+              { "value": "healthcare", "label": "Healthcare" },
+              { "value": "education", "label": "Education" },
+              { "value": "retail", "label": "Retail" },
+              { "value": "other", "label": "Other" }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "section_title": "Feedback",
+      "fields": [
+        {
+          "field_name": "rating",
+          "field_label": "How would you rate our service?",
+          "field_type": "rating",
+          "is_required": true,
+          "validations": {
+            "min": 1,
+            "max": 5
+          }
+        },
+        {
+          "field_name": "comments",
+          "field_label": "Additional Comments",
+          "field_type": "textarea",
+          "is_required": false,
+          "placeholder": "Share your thoughts..."
+        }
+      ]
+    }
+  ]
+}

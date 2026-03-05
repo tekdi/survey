@@ -70,8 +70,8 @@ export class FileUploadController {
       {
         tenantId,
         surveyId,
-        responseId: uploadFileDto.responseId,
-        fieldId: uploadFileDto.fieldId,
+        responseId: uploadFileDto.responseId ?? '',
+        fieldId: uploadFileDto.fieldId ?? '',
         file,
         uploadedBy: userId,
       },

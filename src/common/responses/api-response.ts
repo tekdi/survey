@@ -2,9 +2,18 @@ import { Response } from 'express';
 import { HttpStatus } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
 
+export interface Params {
+  resmsgid: string;
+  err?: any;
+  status: string;
+  errmsg?: any;
+  successmessage?: string;
+}
+
 export class APIResponse {
   /**
-   * Standard success response matching user-microservice format
+   * Standard success response matching attendance-microservice format
+   * Uses spread operator to place result properties at root level
    */
   public static success<T>(
     response: Response,
@@ -13,24 +22,31 @@ export class APIResponse {
     statusCode: number,
     successMessage: string,
   ) {
-    return response.status(statusCode).json({
-      id: apiId,
-      ver: '1.0',
-      ts: new Date().toISOString(),
-      params: {
+    try {
+      const params: Params = {
         resmsgid: uuidv4(),
         status: 'successful',
         err: null,
         errmsg: null,
         successmessage: successMessage,
-      },
-      responseCode: statusCode,
-      result,
-    });
+      };
+
+      const resObj = {
+        id: apiId,
+        ver: '1.0',
+        ts: new Date().toISOString(),
+        params,
+        responseCode: statusCode,
+        ...result,
+      };
+      return response.status(statusCode).json(resObj);
+    } catch (e) {
+      return e;
+    }
   }
 
   /**
-   * Standard error response matching user-microservice format
+   * Standard error response matching attendance-microservice format
    */
   public static error(
     response: Response,
@@ -39,19 +55,25 @@ export class APIResponse {
     error: string,
     statusCode: number,
   ) {
-    return response.status(statusCode).json({
-      id: apiId,
-      ver: '1.0',
-      ts: new Date().toISOString(),
-      params: {
+    try {
+      const params: Params = {
         resmsgid: uuidv4(),
         status: 'failed',
         err: error,
         errmsg: errmsg,
-        successmessage: null,
-      },
-      responseCode: statusCode,
-      result: {},
-    });
+      };
+
+      const resObj = {
+        id: apiId,
+        ver: '1.0',
+        ts: new Date().toISOString(),
+        params,
+        responseCode: statusCode,
+        result: {},
+      };
+      return response.status(statusCode).json(resObj);
+    } catch (e) {
+      return e;
+    }
   }
 }

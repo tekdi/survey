@@ -13,6 +13,7 @@ import {
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { FieldType } from '../entities/survey-field.entity';
+import { SurveyContextType } from '../entities/survey.entity';
 
 export class CreateFieldDto {
   @ApiProperty()
@@ -135,6 +136,25 @@ export class CreateSurveyDto {
   @ApiPropertyOptional()
   @IsOptional()
   theme?: Record<string, any>;
+
+  @ApiPropertyOptional({
+    description: 'Roles that can see/fill this survey. Null/empty = visible to all roles. Admins always see all surveys.',
+    example: ['teacher', 'team_leader'],
+    type: [String],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  target_roles?: string[];
+
+  @ApiPropertyOptional({
+    description: 'What entity the survey is filled against (e.g. per learner, per center, self)',
+    enum: SurveyContextType,
+    example: SurveyContextType.LEARNER,
+  })
+  @IsOptional()
+  @IsEnum(SurveyContextType)
+  context_type?: SurveyContextType;
 
   @ApiPropertyOptional({ type: [CreateSectionDto] })
   @IsOptional()

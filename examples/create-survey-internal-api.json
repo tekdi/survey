@@ -1,0 +1,97 @@
+{
+  "survey_title": "Task Assignment Survey",
+  "survey_description": "Assign tasks to users from internal user-microservice",
+  "survey_type": "task_assignment",
+  "sections": [
+    {
+      "section_title": "Assignment Details",
+      "fields": [
+        {
+          "field_name": "assigned_to",
+          "field_label": "Assign to User",
+          "field_type": "select",
+          "is_required": true,
+          "help_text": "Select a user from your organization",
+          "data_source": {
+            "type": "internal_api",
+            "api": {
+              "url": "http://user-microservice:3001/api/v1/users/list",
+              "method": "POST",
+              "headers": {
+                "Content-Type": "application/json",
+                "tenantid": "{{tenantId}}"
+              },
+              "body": {
+                "limit": 100,
+                "filters": {
+                  "status": "active"
+                }
+              },
+              "mapping": {
+                "valueField": "userId",
+                "labelField": "name",
+                "dataPath": "result.data"
+              }
+            },
+            "cache": {
+              "enabled": true,
+              "ttl": 300
+            },
+            "fallback": [
+              { "value": "unassigned", "label": "Unassigned" }
+            ]
+          }
+        },
+        {
+          "field_name": "priority",
+          "field_label": "Task Priority",
+          "field_type": "radio",
+          "is_required": true,
+          "data_source": {
+            "type": "static",
+            "options": [
+              { "value": "low", "label": "Low Priority" },
+              { "value": "medium", "label": "Medium Priority" },
+              { "value": "high", "label": "High Priority" },
+              { "value": "urgent", "label": "Urgent" }
+            ]
+          }
+        },
+        {
+          "field_name": "tags",
+          "field_label": "Task Tags",
+          "field_type": "multi_select",
+          "is_required": false,
+          "help_text": "Select multiple tags",
+          "data_source": {
+            "type": "api",
+            "api": {
+              "url": "https://api.company.com/v1/tags",
+              "method": "GET",
+              "auth": {
+                "type": "bearer",
+                "token": "your-api-token-here"
+              },
+              "mapping": {
+                "valueField": "tag_id",
+                "labelField": "tag_name",
+                "dataPath": "data.tags"
+              }
+            },
+            "cache": {
+              "enabled": true,
+              "ttl": 3600
+            }
+          }
+        },
+        {
+          "field_name": "description",
+          "field_label": "Task Description",
+          "field_type": "textarea",
+          "is_required": true,
+          "placeholder": "Describe the task..."
+        }
+      ]
+    }
+  ]
+}

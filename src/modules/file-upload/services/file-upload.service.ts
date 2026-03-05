@@ -17,8 +17,7 @@ import { VirusScanService } from './virus-scan.service';
 import { APIResponse } from '@/common/responses/api-response';
 import { APIID } from '@/common/utils/api-id.config';
 import { RESPONSE_MESSAGES } from '@/common/utils/response-messages';
-import { ReportSyncService } from '@/modules/report-sync/services/report-sync.service';
-import { SurveyEventType } from '@/modules/report-sync/config/report-events.config';
+import { KafkaService } from '@/kafka/kafka.service';
 
 export interface UploadFileOptions {
   tenantId: string;
@@ -40,7 +39,7 @@ export class FileUploadService {
     private readonly imageProcessing: ImageProcessingService,
     private readonly videoProcessing: VideoProcessingService,
     private readonly virusScan: VirusScanService,
-    private readonly reportSyncService: ReportSyncService,
+    private readonly kafkaService: KafkaService,
   ) {}
 
   async uploadFile(
@@ -77,31 +76,29 @@ export class FileUploadService {
         fileSize: storageInfo.fileSize,
         mimeType: storageInfo.mimeType,
         fileType: storageInfo.fileType,
-        status: 'uploading',
+        status: 'completed', // Direct completion (no processing)
         uploadedBy,
-        createdBy: uploadedBy,
-        updatedBy: uploadedBy,
       });
 
       await this.fileRepo.save(fileRecord);
 
-      // Process file asynchronously
-      this.processFileAsync(fileRecord, file.buffer).catch((err) => {
-        this.logger.error(
-          `Async processing failed for file ${fileRecord.fileId}: ${err.message}`,
-        );
-      });
+      // Optional: Process async for image dimensions (non-blocking)
+      if (storageInfo.fileType === 'image') {
+        this.extractImageMetadata(fileRecord, file.buffer).catch((err) => {
+          this.logger.warn(`Image metadata extraction failed: ${err.message}`);
+        });
+      }
 
-      // Sync to reporting DB
-      this.reportSyncService
-        .syncSurveyEvent(SurveyEventType.FILE_UPLOADED, {
+      // Publish event to Kafka
+      this.kafkaService
+        .publishFileEvent('uploaded', {
           fileId: fileRecord.fileId,
           surveyId: fileRecord.surveyId,
           tenantId: fileRecord.tenantId,
           fieldId: fileRecord.fieldId,
           fileType: fileRecord.fileType,
-        })
-        .catch((err) => this.logger.error('Report sync failed', err.stack));
+        }, fileRecord.fileId)
+        .catch((err) => this.logger.warn('Kafka publish failed', err.message));
 
       const result = {
         fileId: fileRecord.fileId,
@@ -109,6 +106,7 @@ export class FileUploadService {
         fileSize: fileRecord.fileSize,
         fileType: fileRecord.fileType,
         status: fileRecord.status,
+        filePath: fileRecord.filePath,
       };
 
       return APIResponse.success(
@@ -147,18 +145,8 @@ export class FileUploadService {
         throw new NotFoundException(RESPONSE_MESSAGES.FILE_NOT_FOUND);
       }
 
-      // Generate presigned URL if expired
-      let accessUrl = file.accessUrl;
-      if (
-        !accessUrl ||
-        !file.accessUrlExpiresAt ||
-        new Date() > file.accessUrlExpiresAt
-      ) {
-        accessUrl = await this.storageService.getPresignedUrl(file.filePath);
-        file.accessUrl = accessUrl;
-        file.accessUrlExpiresAt = new Date(Date.now() + 3600 * 1000);
-        await this.fileRepo.save(file);
-      }
+      // Generate presigned URL for access
+      const accessUrl = await this.storageService.getPresignedUrl(file.filePath);
 
       const result = {
         fileId: file.fileId,
@@ -254,14 +242,14 @@ export class FileUploadService {
       file.updatedBy = userId;
       await this.fileRepo.save(file);
 
-      // Sync to reporting DB
-      this.reportSyncService
-        .syncSurveyEvent(SurveyEventType.FILE_DELETED, {
+      // Publish event to Kafka
+      this.kafkaService
+        .publishFileEvent('deleted', {
           fileId: file.fileId,
           surveyId: file.surveyId,
           tenantId: file.tenantId,
-        })
-        .catch((err) => this.logger.error('Report sync failed', err.stack));
+        }, file.fileId)
+        .catch((err) => this.logger.error('Kafka publish failed', err.stack));
 
       return APIResponse.success(
         response,
@@ -282,50 +270,24 @@ export class FileUploadService {
 
   // --- Private helpers ---
 
-  private async processFileAsync(
+  /**
+   * Extract image metadata (async, non-blocking)
+   */
+  private async extractImageMetadata(
     fileRecord: SurveyFileUpload,
     buffer: Buffer,
   ): Promise<void> {
     try {
-      fileRecord.status = 'processing';
-      await this.fileRepo.save(fileRecord);
-
-      // Virus scan
-      const scanResult = await this.virusScan.scanFile(fileRecord.filePath);
-      fileRecord.virusScanStatus = scanResult.clean ? 'clean' : 'infected';
-      fileRecord.virusScanAt = new Date();
-
-      if (!scanResult.clean) {
-        fileRecord.status = 'failed';
-        fileRecord.processingError = `Virus detected: ${scanResult.threat}`;
-        await this.fileRepo.save(fileRecord);
-        return;
-      }
-
-      // Process based on type
-      if (fileRecord.fileType === 'image') {
-        const result = await this.imageProcessing.processImage(
-          fileRecord.filePath,
-          buffer,
-        );
-        fileRecord.imageWidth = result.width;
-        fileRecord.imageHeight = result.height;
-        fileRecord.imageThumbnailPath = result.thumbnailPath;
-      } else if (fileRecord.fileType === 'video') {
-        const result = await this.videoProcessing.processVideo(
-          fileRecord.filePath,
-        );
-        fileRecord.videoDuration = result.duration;
-        fileRecord.videoCodec = result.codec;
-        fileRecord.videoThumbnailPath = result.thumbnailPath;
-      }
-
-      fileRecord.status = 'completed';
+      const result = await this.imageProcessing.processImage(
+        fileRecord.filePath,
+        buffer,
+      );
+      fileRecord.imageWidth = result.width;
+      fileRecord.imageHeight = result.height;
+      fileRecord.imageThumbnailPath = result.thumbnailPath || null;
       await this.fileRepo.save(fileRecord);
     } catch (error) {
-      fileRecord.status = 'failed';
-      fileRecord.processingError = error.message;
-      await this.fileRepo.save(fileRecord);
+      this.logger.warn(`Image metadata extraction failed: ${error.message}`);
     }
   }
 
@@ -338,7 +300,6 @@ export class FileUploadService {
     }
     return {
       duration: file.videoDuration,
-      codec: file.videoCodec,
     };
   }
 }

@@ -3,7 +3,7 @@ import {
   ExecutionContext,
   UnauthorizedException,
 } from '@nestjs/common';
-import jwt_decode from 'jwt-decode';
+import { jwtDecode } from 'jwt-decode';
 
 export interface CurrentUserPayload {
   userId: string;
@@ -38,7 +38,7 @@ export const GetUserId = createParamDecorator(
 
     try {
       const token = authHeader.split(' ')[1];
-      const decoded: any = jwt_decode(token);
+      const decoded: any = jwtDecode(token);
       return decoded?.sub;
     } catch (error) {
       throw new UnauthorizedException('Invalid token');

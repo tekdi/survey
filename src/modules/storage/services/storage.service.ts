@@ -15,7 +15,7 @@ import { Readable } from 'stream';
 export interface UploadOptions {
   tenantId: string;
   surveyId: string;
-  responseId: string;
+  responseId?: string;
   fieldId: string;
   file: Express.Multer.File;
 }
@@ -36,18 +36,18 @@ export class StorageService {
   private provider: string;
 
   constructor(private readonly configService: ConfigService) {
-    this.provider = this.configService.get<string>('storage.provider');
-    this.bucket = this.configService.get<string>('storage.s3.bucket');
+    this.provider = this.configService.get<string>('storage.provider') || 'local';
+    this.bucket = this.configService.get<string>('storage.s3.bucket') || 'survey-media';
 
     if (this.provider === 's3' || this.provider === 'minio') {
       this.s3Client = new S3Client({
-        endpoint: this.configService.get<string>('storage.s3.endpoint'),
-        region: this.configService.get<string>('storage.s3.region'),
+        endpoint: this.configService.get<string>('storage.s3.endpoint') || undefined,
+        region: this.configService.get<string>('storage.s3.region') || 'us-east-1',
         credentials: {
-          accessKeyId: this.configService.get<string>('storage.s3.accessKeyId'),
+          accessKeyId: this.configService.get<string>('storage.s3.accessKeyId') || '',
           secretAccessKey: this.configService.get<string>(
             'storage.s3.secretAccessKey',
-          ),
+          ) || '',
         },
         forcePathStyle: this.provider === 'minio',
       });
@@ -142,7 +142,7 @@ export class StorageService {
     } else {
       const uploadPath = this.configService.get<string>(
         'storage.local.uploadPath',
-      );
+      ) || './uploads';
       const fullPath = path.join(uploadPath, filePath);
       try {
         await fs.unlink(fullPath);
@@ -174,7 +174,7 @@ export class StorageService {
   ): Promise<void> {
     const uploadPath = this.configService.get<string>(
       'storage.local.uploadPath',
-    );
+    ) || './uploads';
     const fullPath = path.join(uploadPath, filePath);
     await fs.mkdir(path.dirname(fullPath), { recursive: true });
     await fs.writeFile(fullPath, buffer);
@@ -199,7 +199,7 @@ export class StorageService {
   private async getFromLocal(filePath: string): Promise<Buffer> {
     const uploadPath = this.configService.get<string>(
       'storage.local.uploadPath',
-    );
+    ) || './uploads';
     const fullPath = path.join(uploadPath, filePath);
     return fs.readFile(fullPath);
   }
@@ -239,12 +239,13 @@ export class StorageService {
   private buildFilePath(params: {
     tenantId: string;
     surveyId: string;
-    responseId: string;
+    responseId?: string;
     fieldId: string;
     fileId: string;
     filename: string;
   }): string {
     const { tenantId, surveyId, responseId, fieldId, filename } = params;
-    return `${tenantId}/surveys/${surveyId}/responses/${responseId}/${fieldId}/${filename}`;
+    const responsePath = responseId ? `/responses/${responseId}` : '';
+    return `${tenantId}/surveys/${surveyId}${responsePath}/${fieldId}/${filename}`;
   }
 }
