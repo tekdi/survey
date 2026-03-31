@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
 
 import {
   appConfig,
@@ -28,6 +30,15 @@ import { FileUploadModule } from './modules/file-upload/file-upload.module';
       isGlobal: true,
       load: [appConfig, databaseConfig, storageConfig, authConfig, redisConfig, kafkaConfig],
       envFilePath: ['.env.local', '.env'],
+    }),
+
+    // Serve Survey Builder frontend
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', 'public'),
+      serveRoot: '/survey-builder',
+      serveStaticOptions: {
+        index: ['index.html'],
+      },
     }),
 
     // Rate limiting

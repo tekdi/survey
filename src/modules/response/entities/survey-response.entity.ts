@@ -33,10 +33,10 @@ export class SurveyResponse {
   respondentId: string;
 
   @Column({ name: 'contextType', type: 'varchar', length: 30, nullable: true })
-  contextType: string;
+  contextType: string | null;
 
   @Column({ name: 'contextId', type: 'varchar', length: 255, nullable: true })
-  contextId: string;
+  contextId: string | null;
 
   @Column({ type: 'enum', enum: ResponseStatus, default: ResponseStatus.IN_PROGRESS })
   status: ResponseStatus;

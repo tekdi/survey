@@ -547,7 +547,7 @@ export class SurveyService {
         survey_type: original.surveyType,
         settings: original.settings,
         theme: original.theme,
-        target_roles: original.targetRoles,
+        target_roles: original.targetRoles ?? undefined,
         context_type: original.contextType,
         sections: original.sections?.map((section) => ({
           section_title: section.sectionTitle,

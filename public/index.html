@@ -1,0 +1,1634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Survey Builder</title>
+  <style>
+    /* ========== CSS RESET & VARIABLES ========== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --primary: #4f46e5;
+      --primary-hover: #4338ca;
+      --primary-light: #eef2ff;
+      --success: #059669;
+      --success-light: #d1fae5;
+      --warning: #d97706;
+      --warning-light: #fef3c7;
+      --danger: #dc2626;
+      --danger-light: #fee2e2;
+      --info: #0284c7;
+      --info-light: #e0f2fe;
+      --gray-50: #f9fafb;
+      --gray-100: #f3f4f6;
+      --gray-200: #e5e7eb;
+      --gray-300: #d1d5db;
+      --gray-400: #9ca3af;
+      --gray-500: #6b7280;
+      --gray-600: #4b5563;
+      --gray-700: #374151;
+      --gray-800: #1f2937;
+      --gray-900: #111827;
+      --radius: 8px;
+      --radius-lg: 12px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+      --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+      --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+      --transition: all 0.2s ease;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--gray-50); color: var(--gray-800); line-height: 1.5; }
+    button { cursor: pointer; border: none; font-family: inherit; font-size: 14px; }
+    input, select, textarea { font-family: inherit; font-size: 14px; }
+    a { text-decoration: none; color: var(--primary); }
+
+    /* ========== TOP NAVBAR ========== */
+    .navbar { background: white; border-bottom: 1px solid var(--gray-200); padding: 0 24px; height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+    .navbar-brand { font-size: 20px; font-weight: 700; color: var(--primary); display: flex; align-items: center; gap: 8px; }
+    .navbar-brand svg { width: 28px; height: 28px; }
+    .navbar-actions { display: flex; align-items: center; gap: 12px; }
+
+    /* ========== BUTTONS ========== */
+    .btn { padding: 8px 16px; border-radius: var(--radius); font-weight: 500; transition: var(--transition); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-success { background: var(--success); color: white; }
+    .btn-success:hover { background: #047857; }
+    .btn-warning { background: var(--warning); color: white; }
+    .btn-warning:hover { background: #b45309; }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn-danger:hover { background: #b91c1c; }
+    .btn-outline { background: white; color: var(--gray-700); border: 1px solid var(--gray-300); }
+    .btn-outline:hover { background: var(--gray-50); border-color: var(--gray-400); }
+    .btn-ghost { background: transparent; color: var(--gray-600); }
+    .btn-ghost:hover { background: var(--gray-100); }
+    .btn-sm { padding: 5px 10px; font-size: 13px; }
+    .btn-xs { padding: 3px 8px; font-size: 12px; }
+    .btn-icon { padding: 6px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; }
+
+    /* ========== FORMS ========== */
+    .form-group { margin-bottom: 16px; }
+    .form-label { display: block; font-size: 13px; font-weight: 600; color: var(--gray-700); margin-bottom: 4px; }
+    .form-input, .form-select, .form-textarea { width: 100%; padding: 8px 12px; border: 1px solid var(--gray-300); border-radius: var(--radius); font-size: 14px; transition: var(--transition); background: white; }
+    .form-input:focus, .form-select:focus, .form-textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,70,229,0.1); }
+    .form-textarea { resize: vertical; min-height: 80px; }
+    .form-checkbox { display: flex; align-items: center; gap: 8px; }
+    .form-checkbox input { width: 16px; height: 16px; accent-color: var(--primary); }
+    .form-hint { font-size: 12px; color: var(--gray-500); margin-top: 2px; }
+
+    /* ========== BADGES ========== */
+    .badge { padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
+    .badge-draft { background: var(--gray-100); color: var(--gray-600); }
+    .badge-published { background: var(--success-light); color: var(--success); }
+    .badge-closed { background: var(--danger-light); color: var(--danger); }
+
+    /* ========== VIEWS ========== */
+    .view { display: none; }
+    .view.active { display: block; }
+
+    /* ========== DASHBOARD ========== */
+    .dashboard { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
+    .dashboard-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    .dashboard-header h1 { font-size: 28px; color: var(--gray-900); }
+    .survey-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 20px; }
+    .survey-card { background: white; border: 1px solid var(--gray-200); border-radius: var(--radius-lg); padding: 20px; transition: var(--transition); }
+    .survey-card:hover { box-shadow: var(--shadow-md); border-color: var(--gray-300); }
+    .survey-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+    .survey-card-title { font-size: 16px; font-weight: 600; color: var(--gray-900); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .survey-card-desc { font-size: 13px; color: var(--gray-500); margin-bottom: 12px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 39px; }
+    .survey-card-meta { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--gray-400); border-top: 1px solid var(--gray-100); padding-top: 12px; }
+    .survey-card-actions { display: flex; gap: 6px; margin-top: 12px; }
+    .empty-state { text-align: center; padding: 80px 20px; }
+    .empty-state svg { width: 80px; height: 80px; color: var(--gray-300); margin-bottom: 16px; }
+    .empty-state h3 { font-size: 18px; color: var(--gray-600); margin-bottom: 8px; }
+    .empty-state p { color: var(--gray-400); margin-bottom: 24px; }
+
+    /* ========== SETTINGS MODAL ========== */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200; align-items: center; justify-content: center; }
+    .modal-overlay.active { display: flex; }
+    .modal { background: white; border-radius: var(--radius-lg); padding: 24px; width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow-lg); }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .modal-header h2 { font-size: 18px; }
+    .modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--gray-200); }
+
+    /* ========== BUILDER LAYOUT ========== */
+    .builder-layout { display: grid; grid-template-columns: 260px 1fr 320px; height: calc(100vh - 56px); overflow: hidden; }
+
+    /* Left Panel - Field Palette */
+    .palette-panel { background: white; border-right: 1px solid var(--gray-200); overflow-y: auto; padding: 16px; }
+    .palette-title { font-size: 14px; font-weight: 700; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--gray-200); }
+    .palette-category { margin-bottom: 20px; }
+    .palette-category-name { font-size: 12px; font-weight: 600; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+    .palette-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--gray-200); border-radius: var(--radius); margin-bottom: 6px; cursor: pointer; transition: var(--transition); background: white; user-select: none; }
+    .palette-item:hover { border-color: var(--primary); background: var(--primary-light); }
+    .palette-item:active { transform: scale(0.97); }
+    .palette-item.dragging { opacity: 0.5; }
+    .palette-item .add-hint { font-size: 11px; color: var(--gray-400); margin-left: auto; opacity: 0; transition: opacity 0.2s; }
+    .palette-item:hover .add-hint { opacity: 1; }
+    .palette-icon { width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+    .palette-item-info { flex: 1; min-width: 0; }
+    .palette-item-name { font-size: 13px; font-weight: 600; color: var(--gray-700); }
+    .palette-item-desc { font-size: 11px; color: var(--gray-400); }
+
+    /* Center - Canvas */
+    .canvas-panel { overflow-y: auto; padding: 24px; background: var(--gray-100); }
+    .canvas-header { max-width: 800px; margin: 0 auto 24px; }
+    .canvas-survey-title { font-size: 24px; font-weight: 700; color: var(--gray-900); border: none; background: transparent; width: 100%; padding: 4px 0; }
+    .canvas-survey-title:focus { outline: none; border-bottom: 2px solid var(--primary); }
+    .canvas-survey-title::placeholder { color: var(--gray-400); }
+    .canvas-survey-desc { font-size: 14px; color: var(--gray-600); border: none; background: transparent; width: 100%; padding: 4px 0; resize: none; min-height: 40px; }
+    .canvas-survey-desc:focus { outline: none; border-bottom: 2px solid var(--primary); }
+    .canvas-survey-desc::placeholder { color: var(--gray-400); }
+
+    .canvas-content { max-width: 800px; margin: 0 auto; }
+
+    /* Section */
+    .section-block { background: white; border: 2px solid var(--gray-200); border-radius: var(--radius-lg); margin-bottom: 20px; overflow: hidden; transition: var(--transition); }
+    .section-block.drag-over { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,70,229,0.15); }
+    .section-block.selected { border-color: var(--primary); }
+    .section-header { display: flex; align-items: center; gap: 8px; padding: 12px 16px; background: var(--gray-50); border-bottom: 1px solid var(--gray-200); cursor: grab; }
+    .section-header:active { cursor: grabbing; }
+    .section-drag-handle { color: var(--gray-400); display: flex; align-items: center; cursor: grab; }
+    .section-title-input { flex: 1; font-size: 15px; font-weight: 600; border: none; background: transparent; padding: 4px; }
+    .section-title-input:focus { outline: none; background: white; border-radius: 4px; }
+    .section-actions { display: flex; gap: 4px; }
+    .section-body { padding: 16px; min-height: 60px; }
+
+    /* Drop zone */
+    .drop-zone { border: 2px dashed var(--gray-300); border-radius: var(--radius); padding: 24px; text-align: center; color: var(--gray-400); font-size: 13px; transition: var(--transition); }
+    .drop-zone.drag-over { border-color: var(--primary); background: var(--primary-light); color: var(--primary); }
+
+    /* Field in canvas */
+    .field-block { border: 1px solid var(--gray-200); border-radius: var(--radius); padding: 12px 16px; margin-bottom: 8px; cursor: grab; transition: var(--transition); display: flex; align-items: center; gap: 12px; background: white; }
+    .field-block:hover { border-color: var(--gray-300); box-shadow: var(--shadow); }
+    .field-block:active { cursor: grabbing; }
+    .field-block.selected { border-color: var(--primary); background: var(--primary-light); box-shadow: 0 0 0 2px rgba(79,70,229,0.2); }
+    .field-block.dragging { opacity: 0.4; }
+    .field-block.drag-over-top { border-top: 3px solid var(--primary); }
+    .field-block.drag-over-bottom { border-bottom: 3px solid var(--primary); }
+    .field-drag-handle { color: var(--gray-400); cursor: grab; flex-shrink: 0; }
+    .field-type-badge { font-size: 11px; padding: 2px 8px; border-radius: 4px; background: var(--gray-100); color: var(--gray-600); font-weight: 600; flex-shrink: 0; min-width: 70px; text-align: center; }
+    .field-info { flex: 1; min-width: 0; }
+    .field-info-label { font-size: 14px; font-weight: 500; color: var(--gray-800); display: flex; align-items: center; gap: 4px; }
+    .field-info-label .required-dot { color: var(--danger); font-weight: 700; }
+    .field-info-name { font-size: 11px; color: var(--gray-400); font-family: monospace; }
+    .field-actions { display: flex; gap: 2px; opacity: 0; transition: var(--transition); }
+    .field-block:hover .field-actions { opacity: 1; }
+
+    /* Add section button */
+    .add-section-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 16px; border: 2px dashed var(--gray-300); border-radius: var(--radius-lg); color: var(--gray-500); font-size: 14px; font-weight: 500; background: transparent; transition: var(--transition); }
+    .add-section-btn:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
+
+    /* Quick-add bar inside section */
+    .quick-add-bar { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px 0; margin-top: 8px; border-top: 1px dashed var(--gray-200); }
+    .quick-add-btn { padding: 4px 10px; border-radius: 14px; font-size: 12px; background: var(--gray-50); color: var(--gray-600); border: 1px solid var(--gray-200); transition: var(--transition); cursor: pointer; }
+    .quick-add-btn:hover { background: var(--primary-light); border-color: var(--primary); color: var(--primary); }
+
+    /* Right Panel - Properties */
+    .properties-panel { background: white; border-left: 1px solid var(--gray-200); overflow-y: auto; padding: 16px; }
+    .properties-title { font-size: 14px; font-weight: 700; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--gray-200); }
+    .properties-empty { text-align: center; padding: 40px 20px; color: var(--gray-400); font-size: 13px; }
+    .properties-section { margin-bottom: 20px; }
+    .properties-section-title { font-size: 12px; font-weight: 700; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+    .options-list { margin-top: 8px; }
+    .option-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+    .option-row input { flex: 1; }
+    .option-row .btn-icon { flex-shrink: 0; }
+
+    /* ========== PREVIEW MODE ========== */
+    .preview-panel { max-width: 700px; margin: 0 auto; padding: 32px 24px; }
+    .preview-survey-title { font-size: 26px; font-weight: 700; color: var(--gray-900); margin-bottom: 8px; }
+    .preview-survey-desc { font-size: 15px; color: var(--gray-600); margin-bottom: 32px; }
+    .preview-section { background: white; border: 1px solid var(--gray-200); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 20px; }
+    .preview-section-title { font-size: 18px; font-weight: 600; color: var(--gray-800); margin-bottom: 4px; }
+    .preview-section-desc { font-size: 13px; color: var(--gray-500); margin-bottom: 20px; }
+    .preview-field { margin-bottom: 20px; }
+    .preview-field-label { font-size: 14px; font-weight: 500; color: var(--gray-700); margin-bottom: 6px; display: flex; align-items: center; gap: 4px; }
+    .preview-field-label .required { color: var(--danger); }
+    .preview-field-hint { font-size: 12px; color: var(--gray-400); margin-top: 4px; }
+    .preview-field input, .preview-field select, .preview-field textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--gray-300); border-radius: var(--radius); font-size: 14px; }
+    .preview-field textarea { min-height: 80px; resize: vertical; }
+    .preview-radio-group, .preview-checkbox-group { display: flex; flex-direction: column; gap: 8px; }
+    .preview-radio-group label, .preview-checkbox-group label { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--gray-700); cursor: pointer; }
+    .preview-radio-group input, .preview-checkbox-group input { accent-color: var(--primary); }
+    .preview-rating { display: flex; gap: 4px; }
+    .preview-star { font-size: 28px; cursor: pointer; color: var(--gray-300); transition: color 0.15s; }
+    .preview-star.active, .preview-star:hover { color: #f59e0b; }
+
+    /* ========== JSON VIEWER ========== */
+    .json-viewer { background: var(--gray-900); border-radius: var(--radius); padding: 20px; color: #a5f3fc; font-family: 'Menlo', 'Monaco', 'Courier New', monospace; font-size: 13px; overflow-x: auto; white-space: pre-wrap; max-height: 70vh; overflow-y: auto; line-height: 1.6; }
+
+    /* ========== SURVEY SETTINGS BAR ========== */
+    .survey-settings-bar { max-width: 800px; margin: 0 auto 16px; display: flex; gap: 12px; flex-wrap: wrap; }
+    .setting-chip { display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: white; border: 1px solid var(--gray-200); border-radius: 20px; font-size: 12px; color: var(--gray-600); }
+    .setting-chip select, .setting-chip input { border: none; background: transparent; font-size: 12px; outline: none; color: var(--gray-700); font-weight: 600; }
+
+    /* ========== TOAST ========== */
+    .toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 300; display: flex; flex-direction: column; gap: 8px; }
+    .toast { padding: 12px 20px; border-radius: var(--radius); color: white; font-size: 14px; font-weight: 500; box-shadow: var(--shadow-lg); animation: slideIn 0.3s ease; min-width: 280px; display: flex; align-items: center; gap: 8px; }
+    .toast-success { background: var(--success); }
+    .toast-error { background: var(--danger); }
+    .toast-info { background: var(--info); }
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+    /* ========== RESPONSIVE ========== */
+    @media (max-width: 1200px) {
+      .builder-layout { grid-template-columns: 220px 1fr 280px; }
+    }
+    @media (max-width: 900px) {
+      .builder-layout { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; }
+      .palette-panel { border-right: none; border-bottom: 1px solid var(--gray-200); max-height: 200px; }
+      .properties-panel { border-left: none; border-top: 1px solid var(--gray-200); max-height: 300px; }
+    }
+
+    /* Scrollbar styling */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--gray-400); }
+
+    .tab-bar { display: flex; border-bottom: 1px solid var(--gray-200); padding: 0 16px; background: white; }
+    .tab-btn { padding: 10px 16px; font-size: 13px; font-weight: 500; color: var(--gray-500); border-bottom: 2px solid transparent; transition: var(--transition); background: none; }
+    .tab-btn:hover { color: var(--gray-700); }
+    .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+  </style>
+</head>
+<body>
+
+  <!-- ===== NAVBAR ===== -->
+  <nav class="navbar">
+    <div class="navbar-brand" onclick="showView('dashboard')" style="cursor:pointer;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Survey Builder
+    </div>
+    <div class="navbar-actions">
+      <button class="btn btn-ghost btn-sm" onclick="openSettings()">⚙️ Settings</button>
+      <button class="btn btn-primary btn-sm" onclick="createNewSurvey()">+ New Survey</button>
+    </div>
+  </nav>
+
+  <!-- ===== DASHBOARD VIEW ===== -->
+  <div id="view-dashboard" class="view active">
+    <div class="dashboard">
+      <div class="dashboard-header">
+        <h1>📋 My Surveys</h1>
+        <button class="btn btn-primary" onclick="createNewSurvey()">+ Create Survey</button>
+      </div>
+      <div id="survey-list" class="survey-grid"></div>
+    </div>
+  </div>
+
+  <!-- ===== BUILDER VIEW ===== -->
+  <div id="view-builder" class="view">
+    <!-- Tab bar -->
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="design" onclick="switchTab('design')">🎨 Design</button>
+      <button class="tab-btn" data-tab="preview" onclick="switchTab('preview')">👁️ Preview</button>
+      <button class="tab-btn" data-tab="json" onclick="switchTab('json')">{ } JSON</button>
+      <div style="flex:1;"></div>
+      <button class="btn btn-outline btn-sm" style="margin:8px 4px;" onclick="saveSurvey()">💾 Save</button>
+      <button class="btn btn-success btn-sm" style="margin:8px 0;" onclick="publishSurvey()">🚀 Publish</button>
+    </div>
+
+    <!-- Design Tab -->
+    <div id="tab-design" class="tab-content">
+      <div class="builder-layout">
+        <!-- Left: Field Palette -->
+        <div class="palette-panel">
+          <div class="palette-title">Field Types</div>
+          <div id="palette-fields"></div>
+        </div>
+
+        <!-- Center: Canvas -->
+        <div class="canvas-panel" id="canvas-panel">
+          <div class="canvas-header">
+            <input type="text" class="canvas-survey-title" id="survey-title" placeholder="Untitled Survey" />
+            <textarea class="canvas-survey-desc" id="survey-desc" placeholder="Add a description..." rows="2"></textarea>
+          </div>
+          <div class="survey-settings-bar">
+            <div class="setting-chip">
+              📦 Type:
+              <select id="survey-type">
+                <option value="">General</option>
+                <option value="feedback">Feedback</option>
+                <option value="assessment">Assessment</option>
+                <option value="registration">Registration</option>
+                <option value="audit">Audit</option>
+                <option value="task_assignment">Task Assignment</option>
+              </select>
+            </div>
+            <div class="setting-chip">
+              🎯 Context:
+              <select id="survey-context">
+                <option value="none">None</option>
+                <option value="learner">Learner</option>
+                <option value="center">Center</option>
+                <option value="teacher">Teacher</option>
+                <option value="self">Self</option>
+              </select>
+            </div>
+            <div class="setting-chip">
+              👥 Roles:
+              <input id="survey-roles" placeholder="e.g. teacher,admin" style="width:120px;" />
+            </div>
+          </div>
+          <div class="canvas-content" id="canvas-content"></div>
+          <button class="add-section-btn" onclick="addSection()">+ Add Section</button>
+        </div>
+
+        <!-- Right: Properties -->
+        <div class="properties-panel" id="properties-panel">
+          <div class="properties-title">Properties</div>
+          <div id="properties-content">
+            <div class="properties-empty">
+              <p>👈 Select a field to edit its properties</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Preview Tab -->
+    <div id="tab-preview" class="tab-content" style="display:none; overflow-y:auto; height:calc(100vh - 56px - 42px); background:var(--gray-100);">
+      <div class="preview-panel" id="preview-content"></div>
+    </div>
+
+    <!-- JSON Tab -->
+    <div id="tab-json" class="tab-content" style="display:none; padding:24px; overflow-y:auto; height:calc(100vh - 56px - 42px); background:var(--gray-100);">
+      <div style="max-width:900px;margin:0 auto;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <h3 style="font-size:16px;color:var(--gray-700);">Survey JSON Payload</h3>
+          <button class="btn btn-outline btn-sm" onclick="copyJson()">📋 Copy JSON</button>
+        </div>
+        <div class="json-viewer" id="json-content"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SETTINGS MODAL ===== -->
+  <div class="modal-overlay" id="settings-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>⚙️ API Settings</h2>
+        <button class="btn-icon btn-ghost" onclick="closeSettings()">✕</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">API Base URL</label>
+        <input type="text" class="form-input" id="setting-api-url" placeholder="http://localhost:3000" />
+        <span class="form-hint">Base URL of your survey service</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label">API Prefix</label>
+        <input type="text" class="form-input" id="setting-api-prefix" placeholder="api/v1" />
+        <span class="form-hint">API prefix path (e.g. api/v1)</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tenant ID</label>
+        <input type="text" class="form-input" id="setting-tenant-id" placeholder="Enter Tenant UUID" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Auth Token (Bearer)</label>
+        <textarea class="form-textarea" id="setting-auth-token" placeholder="Paste your JWT token here..." rows="3"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeSettings()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+<script>
+// ============================
+// STATE MANAGEMENT
+// ============================
+let currentView = 'dashboard';
+let currentSurvey = null;  // The survey being built
+let selectedFieldId = null;
+let selectedSectionIdx = null;
+let dragSource = null;
+let editingSurveyId = null; // If editing existing survey
+
+// Default settings
+let settings = {
+  apiUrl: window.location.origin,
+  apiPrefix: 'api/v1',
+  tenantId: '',
+  authToken: '',
+};
+
+// Load settings from localStorage
+function loadSettings() {
+  const saved = localStorage.getItem('survey-builder-settings');
+  if (saved) settings = { ...settings, ...JSON.parse(saved) };
+  document.getElementById('setting-api-url').value = settings.apiUrl;
+  document.getElementById('setting-api-prefix').value = settings.apiPrefix;
+  document.getElementById('setting-tenant-id').value = settings.tenantId;
+  document.getElementById('setting-auth-token').value = settings.authToken;
+}
+
+function saveSettings() {
+  settings.apiUrl = document.getElementById('setting-api-url').value.replace(/\/+$/, '');
+  settings.apiPrefix = document.getElementById('setting-api-prefix').value.replace(/^\/+|\/+$/g, '');
+  settings.tenantId = document.getElementById('setting-tenant-id').value;
+  settings.authToken = document.getElementById('setting-auth-token').value;
+  localStorage.setItem('survey-builder-settings', JSON.stringify(settings));
+  closeSettings();
+  showToast('Settings saved!', 'success');
+}
+
+function openSettings() {
+  loadSettings();
+  document.getElementById('settings-modal').classList.add('active');
+}
+function closeSettings() {
+  document.getElementById('settings-modal').classList.remove('active');
+}
+
+// ============================
+// FIELD TYPE DEFINITIONS
+// ============================
+const FIELD_TYPES = [
+  { category: 'Text Inputs', fields: [
+    { type: 'text', name: 'Text', desc: 'Single line text', icon: '📝', color: '#eef2ff' },
+    { type: 'textarea', name: 'Textarea', desc: 'Multi-line text', icon: '📄', color: '#eef2ff' },
+    { type: 'number', name: 'Number', desc: 'Numeric input', icon: '🔢', color: '#eef2ff' },
+    { type: 'email', name: 'Email', desc: 'Email address', icon: '📧', color: '#eef2ff' },
+    { type: 'phone', name: 'Phone', desc: 'Phone number', icon: '📱', color: '#eef2ff' },
+  ]},
+  { category: 'Date & Time', fields: [
+    { type: 'date', name: 'Date', desc: 'Date picker', icon: '📅', color: '#fef3c7' },
+    { type: 'time', name: 'Time', desc: 'Time picker', icon: '⏰', color: '#fef3c7' },
+    { type: 'datetime', name: 'Date & Time', desc: 'Both pickers', icon: '🕐', color: '#fef3c7' },
+  ]},
+  { category: 'Selection', fields: [
+    { type: 'select', name: 'Dropdown', desc: 'Single select', icon: '📋', color: '#d1fae5' },
+    { type: 'multi_select', name: 'Multi Select', desc: 'Multiple choices', icon: '☑️', color: '#d1fae5' },
+    { type: 'radio', name: 'Radio', desc: 'Single choice', icon: '🔘', color: '#d1fae5' },
+    { type: 'checkbox', name: 'Checkbox', desc: 'Multiple check', icon: '✅', color: '#d1fae5' },
+  ]},
+  { category: 'Rating & Scale', fields: [
+    { type: 'rating', name: 'Rating', desc: 'Star rating', icon: '⭐', color: '#fef3c7' },
+    { type: 'scale', name: 'Scale', desc: 'Linear scale', icon: '📊', color: '#fef3c7' },
+  ]},
+  { category: 'Media & Files', fields: [
+    { type: 'image_upload', name: 'Image Upload', desc: 'Upload image', icon: '🖼️', color: '#e0f2fe' },
+    { type: 'video_upload', name: 'Video Upload', desc: 'Upload video', icon: '🎬', color: '#e0f2fe' },
+    { type: 'file_upload', name: 'File Upload', desc: 'Upload file', icon: '📎', color: '#e0f2fe' },
+  ]},
+  { category: 'Advanced', fields: [
+    { type: 'signature', name: 'Signature', desc: 'Draw signature', icon: '✍️', color: '#f3e8ff' },
+    { type: 'location', name: 'Location', desc: 'GPS location', icon: '📍', color: '#f3e8ff' },
+    { type: 'matrix', name: 'Matrix', desc: 'Grid questions', icon: '📊', color: '#f3e8ff' },
+  ]},
+];
+
+// Flat lookup
+const FIELD_TYPE_MAP = {};
+FIELD_TYPES.forEach(cat => cat.fields.forEach(f => FIELD_TYPE_MAP[f.type] = f));
+
+// ============================
+// UTILITY: Generate unique IDs
+// ============================
+let _idCounter = 0;
+function genId() { return 'f_' + Date.now() + '_' + (++_idCounter); }
+
+// ============================
+// TOAST NOTIFICATIONS
+// ============================
+function showToast(message, type = 'info') {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.innerHTML = `${type === 'success' ? '✓' : type === 'error' ? '✕' : 'ℹ'} ${message}`;
+  container.appendChild(toast);
+  setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translateX(100%)'; setTimeout(() => toast.remove(), 300); }, 3000);
+}
+
+// ============================
+// API CALLS
+// ============================
+function getApiBase() {
+  return `${settings.apiUrl}/${settings.apiPrefix}/surveys`;
+}
+
+function getHeaders() {
+  const h = { 'Content-Type': 'application/json' };
+  if (settings.tenantId) h['tenantid'] = settings.tenantId;
+  if (settings.authToken) h['Authorization'] = `Bearer ${settings.authToken}`;
+  return h;
+}
+
+async function apiCall(method, path, body = null) {
+  const url = `${getApiBase()}${path}`;
+  const opts = { method, headers: getHeaders() };
+  if (body) opts.body = JSON.stringify(body);
+  const resp = await fetch(url, opts);
+  return resp.json();
+}
+
+// ============================
+// DASHBOARD
+// ============================
+async function loadSurveys() {
+  const listEl = document.getElementById('survey-list');
+
+  if (!settings.tenantId || !settings.authToken) {
+    listEl.innerHTML = `
+      <div class="empty-state" style="grid-column: 1 / -1;">
+        <div style="font-size:48px;margin-bottom:16px;">⚙️</div>
+        <h3>Configure Settings First</h3>
+        <p>Set your API URL, Tenant ID, and Auth Token to get started.</p>
+        <button class="btn btn-primary" onclick="openSettings()">Open Settings</button>
+      </div>`;
+    return;
+  }
+
+  try {
+    listEl.innerHTML = '<p style="text-align:center;padding:40px;color:var(--gray-400);grid-column:1/-1;">Loading surveys...</p>';
+    const result = await apiCall('POST', '/list', { limit: 50, page: 1 });
+
+    if (!result?.result?.data?.data?.length) {
+      listEl.innerHTML = `
+        <div class="empty-state" style="grid-column: 1 / -1;">
+          <div style="font-size:48px;margin-bottom:16px;">📋</div>
+          <h3>No Surveys Yet</h3>
+          <p>Create your first survey using the drag & drop builder.</p>
+          <button class="btn btn-primary" onclick="createNewSurvey()">+ Create Survey</button>
+        </div>`;
+      return;
+    }
+
+    const surveys = result.result.data.data;
+    listEl.innerHTML = surveys.map(s => `
+      <div class="survey-card">
+        <div class="survey-card-header">
+          <div class="survey-card-title" title="${escHtml(s.surveyTitle)}">${escHtml(s.surveyTitle)}</div>
+          <span class="badge badge-${s.status}">${s.status}</span>
+        </div>
+        <div class="survey-card-desc">${escHtml(s.surveyDescription || 'No description')}</div>
+        <div class="survey-card-meta">
+          <span>${s.surveyType || 'General'} ${s.contextType && s.contextType !== 'none' ? '• ' + s.contextType : ''}</span>
+          <span>${new Date(s.createdAt).toLocaleDateString()}</span>
+        </div>
+        <div class="survey-card-actions">
+          <button class="btn btn-outline btn-xs" onclick="editSurvey('${s.surveyId}')">✏️ Edit</button>
+          <button class="btn btn-outline btn-xs" onclick="duplicateSurvey('${s.surveyId}')">📑 Duplicate</button>
+          ${s.status === 'draft' ? `<button class="btn btn-success btn-xs" onclick="publishSurveyById('${s.surveyId}')">🚀 Publish</button>` : ''}
+          ${s.status === 'published' ? `<button class="btn btn-warning btn-xs" onclick="closeSurveyById('${s.surveyId}')">🔒 Close</button>` : ''}
+          ${s.status !== 'published' ? `<button class="btn btn-danger btn-xs" onclick="deleteSurvey('${s.surveyId}')">🗑️</button>` : ''}
+        </div>
+      </div>
+    `).join('');
+  } catch (e) {
+    listEl.innerHTML = `
+      <div class="empty-state" style="grid-column: 1 / -1;">
+        <div style="font-size:48px;margin-bottom:16px;">❌</div>
+        <h3>Failed to Load Surveys</h3>
+        <p>${escHtml(e.message)}</p>
+        <button class="btn btn-outline" onclick="openSettings()">Check Settings</button>
+      </div>`;
+  }
+}
+
+async function editSurvey(surveyId) {
+  try {
+    const result = await apiCall('GET', `/read/${surveyId}`);
+    const s = result?.result?.data;
+    if (!s) { showToast('Survey not found', 'error'); return; }
+
+    editingSurveyId = surveyId;
+    currentSurvey = {
+      title: s.surveyTitle || '',
+      description: s.surveyDescription || '',
+      type: s.surveyType || '',
+      contextType: s.contextType || 'none',
+      targetRoles: s.targetRoles || [],
+      settings: s.settings || {},
+      theme: s.theme || {},
+      sections: (s.sections || []).map(sec => ({
+        id: genId(),
+        title: sec.sectionTitle || 'Untitled Section',
+        description: sec.sectionDescription || '',
+        displayOrder: sec.displayOrder,
+        isVisible: sec.isVisible !== false,
+        conditionalLogic: sec.conditionalLogic || null,
+        fields: (sec.fields || []).map(f => ({
+          id: genId(),
+          fieldName: f.fieldName,
+          fieldLabel: f.fieldLabel,
+          fieldType: f.fieldType,
+          isRequired: f.isRequired || false,
+          displayOrder: f.displayOrder,
+          placeholder: f.placeholder || '',
+          helpText: f.helpText || '',
+          defaultValue: f.defaultValue,
+          validations: f.validations || {},
+          dataSource: f.dataSource || null,
+          uploadConfig: f.uploadConfig || null,
+          uiConfig: f.uiConfig || {},
+          conditionalLogic: f.conditionalLogic || null,
+        }))
+      }))
+    };
+
+    selectedFieldId = null;
+    selectedSectionIdx = null;
+    showView('builder');
+    renderBuilder();
+  } catch (e) {
+    showToast('Failed to load survey: ' + e.message, 'error');
+  }
+}
+
+async function duplicateSurvey(surveyId) {
+  try {
+    await apiCall('POST', `/${surveyId}/duplicate`);
+    showToast('Survey duplicated!', 'success');
+    loadSurveys();
+  } catch (e) { showToast('Failed: ' + e.message, 'error'); }
+}
+
+async function publishSurveyById(surveyId) {
+  try {
+    await apiCall('POST', `/${surveyId}/publish`);
+    showToast('Survey published!', 'success');
+    loadSurveys();
+  } catch (e) { showToast('Failed: ' + e.message, 'error'); }
+}
+
+async function closeSurveyById(surveyId) {
+  try {
+    await apiCall('POST', `/${surveyId}/close`);
+    showToast('Survey closed!', 'success');
+    loadSurveys();
+  } catch (e) { showToast('Failed: ' + e.message, 'error'); }
+}
+
+async function deleteSurvey(surveyId) {
+  if (!confirm('Are you sure you want to delete this survey?')) return;
+  try {
+    await apiCall('DELETE', `/delete/${surveyId}`);
+    showToast('Survey deleted!', 'success');
+    loadSurveys();
+  } catch (e) { showToast('Failed: ' + e.message, 'error'); }
+}
+
+// ============================
+// CREATE / SAVE / PUBLISH
+// ============================
+function createNewSurvey() {
+  editingSurveyId = null;
+  currentSurvey = {
+    title: '',
+    description: '',
+    type: '',
+    contextType: 'none',
+    targetRoles: [],
+    settings: {},
+    theme: {},
+    sections: [{
+      id: genId(),
+      title: 'Section 1',
+      description: '',
+      displayOrder: 0,
+      isVisible: true,
+      conditionalLogic: null,
+      fields: [],
+    }]
+  };
+  selectedFieldId = null;
+  selectedSectionIdx = null;
+  showView('builder');
+  renderBuilder();
+}
+
+function buildPayload() {
+  syncFromInputs();
+  return {
+    survey_title: currentSurvey.title || 'Untitled Survey',
+    survey_description: currentSurvey.description || '',
+    survey_type: currentSurvey.type || null,
+    context_type: currentSurvey.contextType || 'none',
+    target_roles: currentSurvey.targetRoles?.length ? currentSurvey.targetRoles : null,
+    settings: currentSurvey.settings,
+    theme: currentSurvey.theme,
+    sections: currentSurvey.sections.map((sec, si) => ({
+      section_title: sec.title || `Section ${si + 1}`,
+      section_description: sec.description || '',
+      display_order: si,
+      is_visible: sec.isVisible !== false,
+      conditional_logic: sec.conditionalLogic || null,
+      fields: sec.fields.map((f, fi) => ({
+        field_name: f.fieldName || `field_${fi}`,
+        field_label: f.fieldLabel || 'Untitled Field',
+        field_type: f.fieldType,
+        is_required: f.isRequired || false,
+        display_order: fi,
+        placeholder: f.placeholder || null,
+        help_text: f.helpText || null,
+        default_value: f.defaultValue || null,
+        validations: Object.keys(f.validations || {}).length ? f.validations : null,
+        data_source: f.dataSource || null,
+        upload_config: f.uploadConfig || null,
+        ui_config: Object.keys(f.uiConfig || {}).length ? f.uiConfig : null,
+        conditional_logic: f.conditionalLogic || null,
+      }))
+    }))
+  };
+}
+
+async function saveSurvey() {
+  if (!settings.tenantId || !settings.authToken) {
+    showToast('Please configure settings first', 'error');
+    openSettings();
+    return;
+  }
+  try {
+    const payload = buildPayload();
+    let result;
+    if (editingSurveyId) {
+      result = await apiCall('PUT', `/update/${editingSurveyId}`, payload);
+    } else {
+      result = await apiCall('POST', '/create', payload);
+      if (result?.result?.data?.surveyId) {
+        editingSurveyId = result.result.data.surveyId;
+      }
+    }
+    showToast(editingSurveyId ? 'Survey updated!' : 'Survey created!', 'success');
+  } catch (e) {
+    showToast('Failed to save: ' + e.message, 'error');
+  }
+}
+
+async function publishSurvey() {
+  if (!editingSurveyId) {
+    await saveSurvey();
+    if (!editingSurveyId) return;
+  }
+  try {
+    await apiCall('POST', `/${editingSurveyId}/publish`);
+    showToast('Survey published!', 'success');
+  } catch (e) {
+    showToast('Failed to publish: ' + e.message, 'error');
+  }
+}
+
+// ============================
+// VIEW MANAGEMENT
+// ============================
+function showView(view) {
+  currentView = view;
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(`view-${view}`).classList.add('active');
+  if (view === 'dashboard') loadSurveys();
+}
+
+function switchTab(tab) {
+  syncFromInputs();
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector(`.tab-btn[data-tab="${tab}"]`).classList.add('active');
+  document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+  document.getElementById(`tab-${tab}`).style.display = '';
+  if (tab === 'preview') renderPreview();
+  if (tab === 'json') renderJson();
+}
+
+// ============================
+// SYNC INPUTS → STATE
+// ============================
+function syncFromInputs() {
+  if (!currentSurvey) return;
+  const titleEl = document.getElementById('survey-title');
+  const descEl = document.getElementById('survey-desc');
+  if (titleEl) currentSurvey.title = titleEl.value;
+  if (descEl) currentSurvey.description = descEl.value;
+
+  const typeEl = document.getElementById('survey-type');
+  const ctxEl = document.getElementById('survey-context');
+  const rolesEl = document.getElementById('survey-roles');
+  if (typeEl) currentSurvey.type = typeEl.value;
+  if (ctxEl) currentSurvey.contextType = ctxEl.value;
+  if (rolesEl) currentSurvey.targetRoles = rolesEl.value.split(',').map(r => r.trim()).filter(Boolean);
+}
+
+// ============================
+// RENDER FIELD PALETTE (LEFT)
+// ============================
+function renderPalette() {
+  const el = document.getElementById('palette-fields');
+  el.innerHTML = FIELD_TYPES.map(cat => `
+    <div class="palette-category">
+      <div class="palette-category-name">${cat.category}</div>
+      ${cat.fields.map(f => `
+        <div class="palette-item" draggable="true"
+          data-field-type="${f.type}"
+          onclick="onPaletteClick('${f.type}')"
+          ondragstart="onPaletteDragStart(event, '${f.type}')"
+          ondragend="onPaletteDragEnd(event)">
+          <div class="palette-icon" style="background:${f.color};">${f.icon}</div>
+          <div class="palette-item-info">
+            <div class="palette-item-name">${f.name}</div>
+            <div class="palette-item-desc">${f.desc}</div>
+          </div>
+          <span class="add-hint">+ click to add</span>
+        </div>
+      `).join('')}
+    </div>
+  `).join('');
+}
+
+// ============================
+// RENDER CANVAS (CENTER)
+// ============================
+function renderCanvas() {
+  const el = document.getElementById('canvas-content');
+  if (!currentSurvey || !currentSurvey.sections.length) {
+    el.innerHTML = '<div class="drop-zone" id="empty-drop-zone">Drag a field here or click "Add Section"</div>';
+    return;
+  }
+
+  el.innerHTML = currentSurvey.sections.map((sec, si) => `
+    <div class="section-block ${selectedSectionIdx === si && !selectedFieldId ? 'selected' : ''}"
+      id="section-${si}"
+      data-section-idx="${si}"
+      draggable="true"
+      ondragstart="onSectionDragStart(event, ${si})"
+      ondragend="onSectionDragEnd(event)"
+      ondragover="onSectionDragOver(event, ${si})"
+      ondrop="onSectionDrop(event, ${si})">
+      <div class="section-header" onclick="selectSection(${si})">
+        <span class="section-drag-handle" title="Drag to reorder">⠿</span>
+        <input type="text" class="section-title-input" value="${escHtml(sec.title)}"
+          onchange="updateSectionTitle(${si}, this.value)"
+          onclick="event.stopPropagation();" />
+        <div class="section-actions">
+          <button class="btn-icon btn-ghost btn-xs" title="Toggle visibility" onclick="event.stopPropagation(); toggleSectionVisibility(${si})">
+            ${sec.isVisible !== false ? '👁️' : '🚫'}
+          </button>
+          <button class="btn-icon btn-ghost btn-xs" title="Delete section" onclick="event.stopPropagation(); deleteSection(${si})">🗑️</button>
+        </div>
+      </div>
+      <div class="section-body"
+        data-section-idx="${si}"
+        ondragover="onFieldDragOver(event)"
+        ondrop="onFieldDrop(event, ${si})"
+        ondragleave="onFieldDragLeave(event)">
+        ${sec.fields.length ? sec.fields.map((f, fi) => renderFieldBlock(f, si, fi)).join('') : `
+          <div class="drop-zone" data-section-idx="${si}">
+            👈 Click a field on the left panel to add it here, or drag & drop it
+          </div>
+        `}
+        <div class="quick-add-bar">
+          <span style="font-size:11px;color:var(--gray-400);line-height:24px;margin-right:4px;">Quick add:</span>
+          <button class="quick-add-btn" onclick="event.stopPropagation(); addFieldToSection(${si}, 'text')">📝 Text</button>
+          <button class="quick-add-btn" onclick="event.stopPropagation(); addFieldToSection(${si}, 'textarea')">📄 Textarea</button>
+          <button class="quick-add-btn" onclick="event.stopPropagation(); addFieldToSection(${si}, 'number')">🔢 Number</button>
+          <button class="quick-add-btn" onclick="event.stopPropagation(); addFieldToSection(${si}, 'select')">📋 Dropdown</button>
+          <button class="quick-add-btn" onclick="event.stopPropagation(); addFieldToSection(${si}, 'radio')">🔘 Radio</button>
+          <button class="quick-add-btn" onclick="event.stopPropagation(); addFieldToSection(${si}, 'checkbox')">✅ Checkbox</button>
+          <button class="quick-add-btn" onclick="event.stopPropagation(); addFieldToSection(${si}, 'date')">📅 Date</button>
+          <button class="quick-add-btn" onclick="event.stopPropagation(); addFieldToSection(${si}, 'rating')">⭐ Rating</button>
+          <button class="quick-add-btn" onclick="event.stopPropagation(); addFieldToSection(${si}, 'file_upload')">📎 File</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderFieldBlock(field, sectionIdx, fieldIdx) {
+  const info = FIELD_TYPE_MAP[field.fieldType] || { name: field.fieldType, icon: '❓' };
+  const isSelected = selectedFieldId === field.id;
+  return `
+    <div class="field-block ${isSelected ? 'selected' : ''}"
+      id="field-${field.id}"
+      data-field-id="${field.id}"
+      data-section-idx="${sectionIdx}"
+      data-field-idx="${fieldIdx}"
+      draggable="true"
+      onclick="selectField('${field.id}', ${sectionIdx}, ${fieldIdx})"
+      ondragstart="onFieldBlockDragStart(event, ${sectionIdx}, ${fieldIdx})"
+      ondragend="onFieldBlockDragEnd(event)"
+      ondragover="onFieldBlockDragOver(event)"
+      ondragleave="onFieldBlockDragLeave(event)"
+      ondrop="onFieldBlockDrop(event, ${sectionIdx}, ${fieldIdx})">
+      <span class="field-drag-handle">⠿</span>
+      <span class="field-type-badge">${info.icon} ${info.name}</span>
+      <div class="field-info">
+        <div class="field-info-label">
+          ${escHtml(field.fieldLabel || 'Untitled')}
+          ${field.isRequired ? '<span class="required-dot">*</span>' : ''}
+        </div>
+        <div class="field-info-name">${escHtml(field.fieldName || '')}</div>
+      </div>
+      <div class="field-actions">
+        <button class="btn-icon btn-ghost btn-xs" title="Duplicate" onclick="event.stopPropagation(); duplicateField(${sectionIdx}, ${fieldIdx})">📑</button>
+        <button class="btn-icon btn-ghost btn-xs" title="Delete" onclick="event.stopPropagation(); deleteField(${sectionIdx}, ${fieldIdx})">🗑️</button>
+      </div>
+    </div>
+  `;
+}
+
+// ============================
+// RENDER PROPERTIES (RIGHT)
+// ============================
+function renderProperties() {
+  const el = document.getElementById('properties-content');
+  if (!selectedFieldId) {
+    if (selectedSectionIdx !== null && currentSurvey.sections[selectedSectionIdx]) {
+      renderSectionProperties();
+    } else {
+      el.innerHTML = '<div class="properties-empty"><p>👈 Select a field to edit its properties</p></div>';
+    }
+    return;
+  }
+
+  const { field, sectionIdx, fieldIdx } = findFieldById(selectedFieldId);
+  if (!field) { el.innerHTML = '<div class="properties-empty"><p>Field not found</p></div>'; return; }
+
+  const info = FIELD_TYPE_MAP[field.fieldType] || { name: field.fieldType, icon: '❓' };
+  const hasOptions = ['select', 'multi_select', 'radio', 'checkbox'].includes(field.fieldType);
+  const isRatingOrScale = ['rating', 'scale'].includes(field.fieldType);
+  const isUpload = ['image_upload', 'video_upload', 'file_upload'].includes(field.fieldType);
+
+  let optionsHtml = '';
+  if (hasOptions) {
+    const options = field.dataSource?.type === 'static' ? (field.dataSource.options || []) : [];
+    optionsHtml = `
+      <div class="properties-section">
+        <div class="properties-section-title">Options</div>
+        <div class="options-list" id="options-list">
+          ${options.map((opt, i) => `
+            <div class="option-row">
+              <input type="text" class="form-input" placeholder="Value" value="${escHtml(opt.value || '')}" onchange="updateOption(${i}, 'value', this.value)" style="max-width:100px;" />
+              <input type="text" class="form-input" placeholder="Label" value="${escHtml(opt.label || '')}" onchange="updateOption(${i}, 'label', this.value)" />
+              <button class="btn-icon btn-ghost btn-xs" onclick="removeOption(${i})">✕</button>
+            </div>
+          `).join('')}
+        </div>
+        <button class="btn btn-outline btn-xs" onclick="addOption()" style="margin-top:4px;">+ Add Option</button>
+        <div style="margin-top:12px;">
+          <label class="form-label">Or use API Data Source</label>
+          <input type="text" class="form-input" placeholder="API URL" value="${escHtml(field.dataSource?.api?.url || '')}"
+            onchange="updateApiDataSource('url', this.value)" />
+          <div class="form-hint">Leave empty to use static options above</div>
+        </div>
+      </div>`;
+  }
+
+  let ratingHtml = '';
+  if (isRatingOrScale) {
+    ratingHtml = `
+      <div class="properties-section">
+        <div class="properties-section-title">Scale Settings</div>
+        <div class="form-group">
+          <label class="form-label">Min Value</label>
+          <input type="number" class="form-input" value="${field.validations?.min ?? 1}"
+            onchange="updateValidation('min', parseInt(this.value))" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Max Value</label>
+          <input type="number" class="form-input" value="${field.validations?.max ?? 5}"
+            onchange="updateValidation('max', parseInt(this.value))" />
+        </div>
+      </div>`;
+  }
+
+  let uploadHtml = '';
+  if (isUpload) {
+    uploadHtml = `
+      <div class="properties-section">
+        <div class="properties-section-title">Upload Config</div>
+        <div class="form-group">
+          <label class="form-label">Max File Size (MB)</label>
+          <input type="number" class="form-input" value="${field.uploadConfig?.maxSizeMb || 10}"
+            onchange="updateUploadConfig('maxSizeMb', parseInt(this.value))" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Allowed Extensions</label>
+          <input type="text" class="form-input" placeholder="jpg,png,pdf" value="${(field.uploadConfig?.allowedExtensions || []).join(',')}"
+            onchange="updateUploadConfig('allowedExtensions', this.value.split(',').map(s=>s.trim()).filter(Boolean))" />
+        </div>
+      </div>`;
+  }
+
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+      <span style="font-size:20px;">${info.icon}</span>
+      <div>
+        <div style="font-weight:600;font-size:14px;">${info.name}</div>
+        <div style="font-size:11px;color:var(--gray-400);">${field.fieldType}</div>
+      </div>
+    </div>
+
+    <div class="properties-section">
+      <div class="properties-section-title">Basic</div>
+      <div class="form-group">
+        <label class="form-label">Field Label</label>
+        <input type="text" class="form-input" value="${escHtml(field.fieldLabel)}"
+          onchange="updateField('fieldLabel', this.value)" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Field Name <span style="font-weight:400;color:var(--gray-400);">(API key)</span></label>
+        <input type="text" class="form-input" value="${escHtml(field.fieldName)}"
+          onchange="updateField('fieldName', this.value)" style="font-family:monospace;" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Placeholder</label>
+        <input type="text" class="form-input" value="${escHtml(field.placeholder || '')}"
+          onchange="updateField('placeholder', this.value)" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Help Text</label>
+        <input type="text" class="form-input" value="${escHtml(field.helpText || '')}"
+          onchange="updateField('helpText', this.value)" />
+      </div>
+      <div class="form-checkbox">
+        <input type="checkbox" id="prop-required" ${field.isRequired ? 'checked' : ''}
+          onchange="updateField('isRequired', this.checked)" />
+        <label for="prop-required" style="font-size:13px;">Required field</label>
+      </div>
+    </div>
+
+    ${optionsHtml}
+    ${ratingHtml}
+    ${uploadHtml}
+
+    <div class="properties-section">
+      <div class="properties-section-title">Validations</div>
+      ${!isRatingOrScale ? `
+      <div class="form-group">
+        <label class="form-label">Min Length</label>
+        <input type="number" class="form-input" value="${field.validations?.minLength || ''}"
+          onchange="updateValidation('minLength', this.value ? parseInt(this.value) : undefined)" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Max Length</label>
+        <input type="number" class="form-input" value="${field.validations?.maxLength || ''}"
+          onchange="updateValidation('maxLength', this.value ? parseInt(this.value) : undefined)" />
+      </div>` : ''}
+      <div class="form-group">
+        <label class="form-label">Pattern (Regex)</label>
+        <input type="text" class="form-input" value="${escHtml(field.validations?.pattern || '')}"
+          onchange="updateValidation('pattern', this.value || undefined)" placeholder="e.g. ^[a-zA-Z]+$" />
+      </div>
+    </div>
+  `;
+}
+
+function renderSectionProperties() {
+  const el = document.getElementById('properties-content');
+  const sec = currentSurvey.sections[selectedSectionIdx];
+  if (!sec) return;
+
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+      <span style="font-size:20px;">📁</span>
+      <div style="font-weight:600;font-size:14px;">Section Properties</div>
+    </div>
+
+    <div class="properties-section">
+      <div class="form-group">
+        <label class="form-label">Section Title</label>
+        <input type="text" class="form-input" value="${escHtml(sec.title)}"
+          onchange="updateSectionProp('title', this.value)" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea class="form-textarea" rows="3"
+          onchange="updateSectionProp('description', this.value)">${escHtml(sec.description || '')}</textarea>
+      </div>
+      <div class="form-checkbox">
+        <input type="checkbox" id="sec-visible" ${sec.isVisible !== false ? 'checked' : ''}
+          onchange="updateSectionProp('isVisible', this.checked)" />
+        <label for="sec-visible" style="font-size:13px;">Visible</label>
+      </div>
+    </div>
+  `;
+}
+
+// ============================
+// FIELD & SECTION OPERATIONS
+// ============================
+function addSection() {
+  currentSurvey.sections.push({
+    id: genId(),
+    title: `Section ${currentSurvey.sections.length + 1}`,
+    description: '',
+    displayOrder: currentSurvey.sections.length,
+    isVisible: true,
+    conditionalLogic: null,
+    fields: [],
+  });
+  renderCanvas();
+}
+
+function deleteSection(idx) {
+  if (currentSurvey.sections.length <= 1) {
+    showToast('Survey must have at least one section', 'error');
+    return;
+  }
+  if (!confirm('Delete this section and all its fields?')) return;
+  currentSurvey.sections.splice(idx, 1);
+  selectedFieldId = null;
+  selectedSectionIdx = null;
+  renderCanvas();
+  renderProperties();
+}
+
+function updateSectionTitle(idx, val) {
+  currentSurvey.sections[idx].title = val;
+}
+
+function toggleSectionVisibility(idx) {
+  currentSurvey.sections[idx].isVisible = !(currentSurvey.sections[idx].isVisible !== false);
+  renderCanvas();
+}
+
+function selectSection(idx) {
+  selectedFieldId = null;
+  selectedSectionIdx = idx;
+  renderCanvas();
+  renderProperties();
+}
+
+function updateSectionProp(key, value) {
+  if (selectedSectionIdx !== null && currentSurvey.sections[selectedSectionIdx]) {
+    currentSurvey.sections[selectedSectionIdx][key] = value;
+    renderCanvas();
+  }
+}
+
+function addFieldToSection(sectionIdx, fieldType, insertIdx = -1) {
+  const info = FIELD_TYPE_MAP[fieldType];
+  const sec = currentSurvey.sections[sectionIdx];
+  const newField = {
+    id: genId(),
+    fieldName: fieldType + '_' + (sec.fields.length + 1),
+    fieldLabel: info ? info.name : fieldType,
+    fieldType: fieldType,
+    isRequired: false,
+    displayOrder: sec.fields.length,
+    placeholder: '',
+    helpText: '',
+    defaultValue: null,
+    validations: {},
+    dataSource: ['select', 'multi_select', 'radio', 'checkbox'].includes(fieldType)
+      ? { type: 'static', options: [{ value: 'option1', label: 'Option 1' }, { value: 'option2', label: 'Option 2' }] }
+      : null,
+    uploadConfig: ['image_upload', 'video_upload', 'file_upload'].includes(fieldType) ? { maxSizeMb: 10 } : null,
+    uiConfig: {},
+    conditionalLogic: null,
+  };
+
+  if (insertIdx >= 0 && insertIdx <= sec.fields.length) {
+    sec.fields.splice(insertIdx, 0, newField);
+  } else {
+    sec.fields.push(newField);
+  }
+
+  selectedFieldId = newField.id;
+  selectedSectionIdx = sectionIdx;
+  renderCanvas();
+  renderProperties();
+}
+
+function deleteField(sectionIdx, fieldIdx) {
+  const field = currentSurvey.sections[sectionIdx].fields[fieldIdx];
+  if (selectedFieldId === field.id) {
+    selectedFieldId = null;
+  }
+  currentSurvey.sections[sectionIdx].fields.splice(fieldIdx, 1);
+  renderCanvas();
+  renderProperties();
+}
+
+function duplicateField(sectionIdx, fieldIdx) {
+  const original = currentSurvey.sections[sectionIdx].fields[fieldIdx];
+  const copy = JSON.parse(JSON.stringify(original));
+  copy.id = genId();
+  copy.fieldName = copy.fieldName + '_copy';
+  copy.fieldLabel = copy.fieldLabel + ' (Copy)';
+  currentSurvey.sections[sectionIdx].fields.splice(fieldIdx + 1, 0, copy);
+  renderCanvas();
+}
+
+function selectField(fieldId, sectionIdx, fieldIdx) {
+  selectedFieldId = fieldId;
+  selectedSectionIdx = sectionIdx;
+  renderCanvas();
+  renderProperties();
+}
+
+function findFieldById(fieldId) {
+  for (let si = 0; si < currentSurvey.sections.length; si++) {
+    const sec = currentSurvey.sections[si];
+    for (let fi = 0; fi < sec.fields.length; fi++) {
+      if (sec.fields[fi].id === fieldId) return { field: sec.fields[fi], sectionIdx: si, fieldIdx: fi };
+    }
+  }
+  return { field: null, sectionIdx: -1, fieldIdx: -1 };
+}
+
+function updateField(key, value) {
+  if (!selectedFieldId) return;
+  const { field } = findFieldById(selectedFieldId);
+  if (field) {
+    field[key] = value;
+    renderCanvas();
+  }
+}
+
+function updateValidation(key, value) {
+  if (!selectedFieldId) return;
+  const { field } = findFieldById(selectedFieldId);
+  if (!field) return;
+  if (!field.validations) field.validations = {};
+  if (value === undefined || value === '') {
+    delete field.validations[key];
+  } else {
+    field.validations[key] = value;
+  }
+}
+
+function updateUploadConfig(key, value) {
+  if (!selectedFieldId) return;
+  const { field } = findFieldById(selectedFieldId);
+  if (!field) return;
+  if (!field.uploadConfig) field.uploadConfig = {};
+  field.uploadConfig[key] = value;
+}
+
+function updateApiDataSource(key, value) {
+  if (!selectedFieldId) return;
+  const { field } = findFieldById(selectedFieldId);
+  if (!field) return;
+  if (!value) {
+    // Clear API data source, keep static
+    if (field.dataSource?.api) delete field.dataSource.api;
+    return;
+  }
+  if (!field.dataSource) field.dataSource = { type: 'api' };
+  field.dataSource.type = 'api';
+  if (!field.dataSource.api) field.dataSource.api = {};
+  field.dataSource.api[key] = value;
+  if (key === 'url') field.dataSource.api.method = field.dataSource.api.method || 'GET';
+}
+
+// Options management for select/radio/checkbox
+function addOption() {
+  if (!selectedFieldId) return;
+  const { field } = findFieldById(selectedFieldId);
+  if (!field) return;
+  if (!field.dataSource) field.dataSource = { type: 'static', options: [] };
+  if (!field.dataSource.options) field.dataSource.options = [];
+  const n = field.dataSource.options.length + 1;
+  field.dataSource.options.push({ value: `option${n}`, label: `Option ${n}` });
+  renderProperties();
+}
+
+function removeOption(idx) {
+  if (!selectedFieldId) return;
+  const { field } = findFieldById(selectedFieldId);
+  if (!field?.dataSource?.options) return;
+  field.dataSource.options.splice(idx, 1);
+  renderProperties();
+}
+
+function updateOption(idx, key, value) {
+  if (!selectedFieldId) return;
+  const { field } = findFieldById(selectedFieldId);
+  if (!field?.dataSource?.options?.[idx]) return;
+  field.dataSource.options[idx][key] = value;
+}
+
+// ============================
+// DRAG & DROP
+// ============================
+
+// --- Palette click to add ---
+function onPaletteClick(fieldType) {
+  if (!currentSurvey || !currentSurvey.sections.length) {
+    showToast('Create a survey first by clicking "+ New Survey"', 'error');
+    return;
+  }
+  // Add to the selected section, or the last section
+  const targetIdx = (selectedSectionIdx !== null && selectedSectionIdx < currentSurvey.sections.length)
+    ? selectedSectionIdx
+    : currentSurvey.sections.length - 1;
+  addFieldToSection(targetIdx, fieldType);
+  showToast(`${FIELD_TYPE_MAP[fieldType]?.name || fieldType} field added!`, 'success');
+}
+
+// --- Palette → Canvas (drag) ---
+function onPaletteDragStart(e, fieldType) {
+  e.dataTransfer.setData('text/plain', JSON.stringify({ source: 'palette', fieldType }));
+  e.dataTransfer.effectAllowed = 'copy';
+  e.target.closest('.palette-item').classList.add('dragging');
+}
+function onPaletteDragEnd(e) {
+  e.target.closest('.palette-item')?.classList.remove('dragging');
+}
+
+// --- Section drag ---
+let dragSectionIdx = null;
+function onSectionDragStart(e, idx) {
+  // Don't allow section drag when starting from a field or quick-add button
+  if (e.target.closest('.field-block') || e.target.closest('.quick-add-bar') || e.target.closest('.quick-add-btn')) {
+    e.preventDefault(); return;
+  }
+  dragSectionIdx = idx;
+  e.dataTransfer.setData('text/plain', JSON.stringify({ source: 'section', sectionIdx: idx }));
+  e.dataTransfer.effectAllowed = 'move';
+}
+function onSectionDragEnd(e) {
+  dragSectionIdx = null;
+  document.querySelectorAll('.section-block').forEach(el => el.classList.remove('drag-over'));
+}
+function onSectionDragOver(e, idx) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+}
+function onSectionDrop(e, targetIdx) {
+  e.preventDefault();
+  e.stopPropagation();
+  document.querySelectorAll('.section-block').forEach(el => el.classList.remove('drag-over'));
+  let data;
+  try { data = JSON.parse(e.dataTransfer.getData('text/plain')); } catch { return; }
+
+  if (data.source === 'section' && data.sectionIdx !== targetIdx) {
+    const sec = currentSurvey.sections.splice(data.sectionIdx, 1)[0];
+    currentSurvey.sections.splice(targetIdx, 0, sec);
+    renderCanvas();
+  } else if (data.source === 'palette') {
+    addFieldToSection(targetIdx, data.fieldType);
+  }
+}
+
+// --- Field drag within canvas ---
+let dragFieldData = null;
+function onFieldBlockDragStart(e, sectionIdx, fieldIdx) {
+  e.stopPropagation();
+  dragFieldData = { sectionIdx, fieldIdx };
+  e.dataTransfer.setData('text/plain', JSON.stringify({ source: 'field', sectionIdx, fieldIdx }));
+  e.dataTransfer.effectAllowed = 'move';
+  setTimeout(() => e.target.classList.add('dragging'), 0);
+}
+function onFieldBlockDragEnd(e) {
+  e.target.classList.remove('dragging');
+  dragFieldData = null;
+  document.querySelectorAll('.field-block').forEach(el => {
+    el.classList.remove('drag-over-top', 'drag-over-bottom');
+  });
+}
+function onFieldBlockDragOver(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  e.dataTransfer.dropEffect = 'move';
+  const rect = e.currentTarget.getBoundingClientRect();
+  const midY = rect.top + rect.height / 2;
+  e.currentTarget.classList.toggle('drag-over-top', e.clientY < midY);
+  e.currentTarget.classList.toggle('drag-over-bottom', e.clientY >= midY);
+}
+function onFieldBlockDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over-top', 'drag-over-bottom');
+}
+function onFieldBlockDrop(e, targetSectionIdx, targetFieldIdx) {
+  e.preventDefault();
+  e.stopPropagation();
+  e.currentTarget.classList.remove('drag-over-top', 'drag-over-bottom');
+
+  let data;
+  try { data = JSON.parse(e.dataTransfer.getData('text/plain')); } catch { return; }
+
+  const rect = e.currentTarget.getBoundingClientRect();
+  const insertAfter = e.clientY >= rect.top + rect.height / 2;
+  const insertIdx = insertAfter ? targetFieldIdx + 1 : targetFieldIdx;
+
+  if (data.source === 'palette') {
+    addFieldToSection(targetSectionIdx, data.fieldType, insertIdx);
+  } else if (data.source === 'field') {
+    const srcSec = data.sectionIdx;
+    const srcFi = data.fieldIdx;
+    if (srcSec === targetSectionIdx && srcFi === targetFieldIdx) return;
+
+    const field = currentSurvey.sections[srcSec].fields.splice(srcFi, 1)[0];
+    let adjustedIdx = insertIdx;
+    if (srcSec === targetSectionIdx && srcFi < insertIdx) adjustedIdx--;
+    currentSurvey.sections[targetSectionIdx].fields.splice(adjustedIdx, 0, field);
+    renderCanvas();
+    renderProperties();
+  }
+}
+
+// --- Drop on section body (empty area) ---
+function onFieldDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'copy';
+  const dropZone = e.currentTarget.querySelector('.drop-zone');
+  if (dropZone) dropZone.classList.add('drag-over');
+  e.currentTarget.closest('.section-block')?.classList.add('drag-over');
+}
+function onFieldDragLeave(e) {
+  // Only remove if we're actually leaving the section-body, not entering a child
+  if (e.currentTarget.contains(e.relatedTarget)) return;
+  const dropZone = e.currentTarget.querySelector('.drop-zone');
+  if (dropZone) dropZone.classList.remove('drag-over');
+  e.currentTarget.closest('.section-block')?.classList.remove('drag-over');
+}
+function onFieldDrop(e, sectionIdx) {
+  e.preventDefault();
+  e.stopPropagation();
+  // Clean up all drag states
+  document.querySelectorAll('.drop-zone').forEach(z => z.classList.remove('drag-over'));
+  document.querySelectorAll('.section-block').forEach(s => s.classList.remove('drag-over'));
+
+  let data;
+  try { data = JSON.parse(e.dataTransfer.getData('text/plain')); } catch { return; }
+
+  if (data.source === 'palette') {
+    addFieldToSection(sectionIdx, data.fieldType);
+    showToast(`${FIELD_TYPE_MAP[data.fieldType]?.name || data.fieldType} field added!`, 'success');
+  } else if (data.source === 'field') {
+    const field = currentSurvey.sections[data.sectionIdx].fields.splice(data.fieldIdx, 1)[0];
+    currentSurvey.sections[sectionIdx].fields.push(field);
+    renderCanvas();
+    renderProperties();
+  }
+}
+
+// ============================
+// RENDER BUILDER
+// ============================
+function renderBuilder() {
+  if (!currentSurvey) return;
+  document.getElementById('survey-title').value = currentSurvey.title || '';
+  document.getElementById('survey-desc').value = currentSurvey.description || '';
+  document.getElementById('survey-type').value = currentSurvey.type || '';
+  document.getElementById('survey-context').value = currentSurvey.contextType || 'none';
+  document.getElementById('survey-roles').value = (currentSurvey.targetRoles || []).join(', ');
+  renderPalette();
+  renderCanvas();
+  renderProperties();
+}
+
+// ============================
+// PREVIEW
+// ============================
+function renderPreview() {
+  syncFromInputs();
+  const el = document.getElementById('preview-content');
+  if (!currentSurvey) { el.innerHTML = '<p>No survey to preview</p>'; return; }
+
+  el.innerHTML = `
+    <div class="preview-survey-title">${escHtml(currentSurvey.title || 'Untitled Survey')}</div>
+    <div class="preview-survey-desc">${escHtml(currentSurvey.description || '')}</div>
+    ${currentSurvey.sections.map(sec => `
+      <div class="preview-section">
+        <div class="preview-section-title">${escHtml(sec.title)}</div>
+        ${sec.description ? `<div class="preview-section-desc">${escHtml(sec.description)}</div>` : ''}
+        ${sec.fields.map(f => renderPreviewField(f)).join('')}
+        ${!sec.fields.length ? '<p style="color:var(--gray-400);font-size:13px;">No fields in this section</p>' : ''}
+      </div>
+    `).join('')}
+  `;
+}
+
+function renderPreviewField(field) {
+  let inputHtml = '';
+  const ph = field.placeholder ? `placeholder="${escHtml(field.placeholder)}"` : '';
+
+  switch (field.fieldType) {
+    case 'text': case 'email': case 'phone': case 'number':
+      inputHtml = `<input type="${field.fieldType === 'phone' ? 'tel' : field.fieldType}" ${ph} />`;
+      break;
+    case 'textarea':
+      inputHtml = `<textarea ${ph}></textarea>`;
+      break;
+    case 'date':
+      inputHtml = `<input type="date" />`;
+      break;
+    case 'time':
+      inputHtml = `<input type="time" />`;
+      break;
+    case 'datetime':
+      inputHtml = `<input type="datetime-local" />`;
+      break;
+    case 'select': case 'multi_select': {
+      const opts = field.dataSource?.options || [];
+      inputHtml = `<select ${field.fieldType === 'multi_select' ? 'multiple' : ''}>
+        <option value="">-- Select --</option>
+        ${opts.map(o => `<option value="${escHtml(o.value)}">${escHtml(o.label)}</option>`).join('')}
+      </select>`;
+      break;
+    }
+    case 'radio': {
+      const opts = field.dataSource?.options || [];
+      inputHtml = `<div class="preview-radio-group">${opts.map((o, i) =>
+        `<label><input type="radio" name="${field.id}" value="${escHtml(o.value)}" /> ${escHtml(o.label)}</label>`
+      ).join('')}</div>`;
+      break;
+    }
+    case 'checkbox': {
+      const opts = field.dataSource?.options || [];
+      inputHtml = `<div class="preview-checkbox-group">${opts.map((o, i) =>
+        `<label><input type="checkbox" value="${escHtml(o.value)}" /> ${escHtml(o.label)}</label>`
+      ).join('')}</div>`;
+      break;
+    }
+    case 'rating': {
+      const max = field.validations?.max || 5;
+      inputHtml = `<div class="preview-rating">${Array.from({length: max}, (_, i) =>
+        `<span class="preview-star" onmouseover="previewStarHover(this, ${i+1})" onclick="previewStarClick(this, ${i+1})">★</span>`
+      ).join('')}</div>`;
+      break;
+    }
+    case 'scale': {
+      const min = field.validations?.min || 1;
+      const max = field.validations?.max || 10;
+      inputHtml = `<div style="display:flex;align-items:center;gap:8px;"><span>${min}</span>
+        <input type="range" min="${min}" max="${max}" style="flex:1;" />
+        <span>${max}</span></div>`;
+      break;
+    }
+    case 'image_upload': case 'video_upload': case 'file_upload':
+      inputHtml = `<div style="border:2px dashed var(--gray-300);border-radius:8px;padding:32px;text-align:center;color:var(--gray-400);">
+        📁 Click or drag to upload ${field.fieldType.replace('_upload', '')}
+      </div>`;
+      break;
+    case 'signature':
+      inputHtml = `<div style="border:1px solid var(--gray-300);border-radius:8px;padding:40px;text-align:center;color:var(--gray-400);background:white;">
+        ✍️ Signature pad area
+      </div>`;
+      break;
+    case 'location':
+      inputHtml = `<div style="border:1px solid var(--gray-300);border-radius:8px;padding:40px;text-align:center;color:var(--gray-400);background:#f0f9ff;">
+        📍 Location picker
+      </div>`;
+      break;
+    case 'matrix':
+      inputHtml = `<div style="border:1px solid var(--gray-300);border-radius:8px;padding:20px;text-align:center;color:var(--gray-400);">
+        📊 Matrix grid
+      </div>`;
+      break;
+    default:
+      inputHtml = `<input type="text" ${ph} />`;
+  }
+
+  return `
+    <div class="preview-field">
+      <div class="preview-field-label">
+        ${escHtml(field.fieldLabel || 'Untitled')}
+        ${field.isRequired ? '<span class="required">*</span>' : ''}
+      </div>
+      ${inputHtml}
+      ${field.helpText ? `<div class="preview-field-hint">${escHtml(field.helpText)}</div>` : ''}
+    </div>
+  `;
+}
+
+function previewStarHover(el, n) {
+  const stars = el.parentElement.querySelectorAll('.preview-star');
+  stars.forEach((s, i) => s.classList.toggle('active', i < n));
+}
+function previewStarClick(el, n) {
+  const stars = el.parentElement.querySelectorAll('.preview-star');
+  stars.forEach((s, i) => { s.classList.toggle('active', i < n); s.dataset.selected = i < n; });
+}
+
+// ============================
+// JSON VIEW
+// ============================
+function renderJson() {
+  const payload = buildPayload();
+  document.getElementById('json-content').textContent = JSON.stringify(payload, null, 2);
+}
+
+function copyJson() {
+  const payload = buildPayload();
+  navigator.clipboard.writeText(JSON.stringify(payload, null, 2)).then(() => {
+    showToast('JSON copied to clipboard!', 'success');
+  }).catch(() => {
+    showToast('Failed to copy', 'error');
+  });
+}
+
+// ============================
+// HELPERS
+// ============================
+function escHtml(str) {
+  if (!str) return '';
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+// ============================
+// INIT
+// ============================
+loadSettings();
+loadSurveys();
+</script>
+</body>
+</html>

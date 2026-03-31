@@ -8,10 +8,12 @@ import { FileUploadService } from './services/file-upload.service';
 import { ImageProcessingService } from './services/image-processing.service';
 import { VideoProcessingService } from './services/video-processing.service';
 import { VirusScanService } from './services/virus-scan.service';
+import { KafkaModule } from '@/kafka/kafka.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([SurveyFileUpload]),
+    KafkaModule,
     MulterModule.register({
       limits: {
         fileSize: 100 * 1024 * 1024, // 100 MB max

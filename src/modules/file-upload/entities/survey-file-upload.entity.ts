@@ -55,7 +55,7 @@ export class SurveyFileUpload {
   imageHeight: number;
 
   @Column({ name: 'imageThumbnailPath', type: 'text', nullable: true })
-  imageThumbnailPath: string;
+  imageThumbnailPath: string | null;
 
   // Optional: Video metadata
   @Column({ name: 'videoDuration', type: 'integer', nullable: true })
@@ -74,6 +74,9 @@ export class SurveyFileUpload {
   // Audit
   @Column({ name: 'uploadedBy', type: 'uuid' })
   uploadedBy: string;
+
+  @Column({ name: 'updatedBy', type: 'uuid', nullable: true })
+  updatedBy: string;
 
   @CreateDateColumn({ name: 'createdAt', type: 'timestamp with time zone' })
   createdAt: Date;

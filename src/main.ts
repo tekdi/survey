@@ -12,8 +12,13 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
 
-  // Security
-  app.use(helmet.default());
+  // Security — disable CSP for Survey Builder (inline scripts/event handlers)
+  // All other Helmet protections (X-Frame-Options, HSTS, etc.) remain active
+  app.use(
+    helmet.default({
+      contentSecurityPolicy: false,
+    }),
+  );
   
   // Get CORS origins from config
   const corsOrigins = configService.get<string[] | string>('app.corsOrigins', '*');
@@ -25,7 +30,7 @@ async function bootstrap() {
   });
 
   // Global prefix — matches user-microservice pattern: survey/v1
-  const apiPrefix = configService.get<string>('app.apiPrefix');
+  const apiPrefix = configService.get<string>('app.apiPrefix') || 'api/v1';
   app.setGlobalPrefix(apiPrefix);
 
   // Global exception filter (matching user-microservice AllExceptionsFilter)
@@ -49,10 +54,11 @@ async function bootstrap() {
   SwaggerModule.setup('swagger-docs', app, document);
 
   // Start server
-  const port = configService.get<number>('app.port');
+  const port = configService.get<number>('app.port') || 3000;
   await app.listen(port);
   logger.log(`Application running on port ${port}`);
   logger.log(`Swagger docs: http://localhost:${port}/swagger-docs`);
+  logger.log(`Survey Builder: http://localhost:${port}/survey-builder`);
 }
 
 bootstrap();

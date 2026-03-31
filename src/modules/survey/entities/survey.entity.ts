@@ -59,7 +59,7 @@ export class Survey {
   theme: Record<string, any>;
 
   @Column({ name: 'targetRoles', type: 'jsonb', nullable: true })
-  targetRoles: string[];
+  targetRoles: string[] | null;
 
   @Column({ name: 'contextType', type: 'varchar', length: 30, default: SurveyContextType.NONE })
   contextType: SurveyContextType;

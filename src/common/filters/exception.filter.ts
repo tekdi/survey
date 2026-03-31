@@ -45,10 +45,15 @@ export class AllExceptionsFilter implements ExceptionFilter {
       errorName = exception.name;
     }
 
-    this.logger.error(
-      `${request.method} ${request.url} - ${statusCode}: ${errorMessage}`,
-      exception instanceof Error ? exception.stack : undefined,
-    );
+    // Log 4xx as warnings (client errors), 5xx as errors (server errors)
+    const logMessage = `${request.method} ${request.url} - ${statusCode}: ${errorMessage}`;
+    if (statusCode >= 500) {
+      this.logger.error(logMessage, exception instanceof Error ? exception.stack : undefined);
+    } else if (statusCode === 404) {
+      this.logger.warn(logMessage);
+    } else {
+      this.logger.warn(logMessage);
+    }
 
     response.status(statusCode).json({
       id: this.apiId,

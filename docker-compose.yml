@@ -51,11 +51,11 @@ services:
     environment:
       NODE_ENV: development
       PORT: 3000
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USERNAME: postgres
-      DB_PASSWORD: postgres
-      DB_DATABASE: survey_service
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USERNAME: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DATABASE: survey_service
       REDIS_HOST: redis
       REDIS_PORT: 6379
       STORAGE_PROVIDER: minio
