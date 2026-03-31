@@ -1,1 +1,16 @@
-./gitignore# 
+# dependencies
+node_modules/
+
+# build outputs
+dist/
+build/
+coverage/
+
+# logs
+*.log
+
+# env files
+.env
+
+# OS files
+.DS_Store
