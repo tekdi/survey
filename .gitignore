@@ -9,8 +9,7 @@ coverage/
 # logs
 *.log
 
-# env files
+# env 
 .env
-
 # OS files
 .DS_Store

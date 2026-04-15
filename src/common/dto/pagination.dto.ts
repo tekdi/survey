@@ -1,6 +1,19 @@
-import { IsOptional, IsInt, Min, Max, IsString, IsIn } from 'class-validator';
+import { IsOptional, IsInt, Min, Max, IsString, IsIn, IsArray, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
+
+export class FiltersDto {
+  @ApiPropertyOptional({ type: [String], description: 'Filter by target roles' })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  targetRoles?: string[];
+
+  @ApiPropertyOptional({ description: 'Filter by survey status (e.g. draft, published)' })
+  @IsOptional()
+  @IsString()
+  status?: string;
+}
 
 export class PaginationDto {
   @ApiPropertyOptional({ default: 1, minimum: 1 })
@@ -27,6 +40,12 @@ export class PaginationDto {
   @IsOptional()
   @IsIn(['ASC', 'DESC'])
   sortOrder?: 'ASC' | 'DESC' = 'DESC';
+
+  @ApiPropertyOptional({ type: FiltersDto, description: 'Optional filters' })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => FiltersDto)
+  filters?: FiltersDto;
 
   get skip(): number {
     return ((this.page || 1) - 1) * (this.limit || 20);

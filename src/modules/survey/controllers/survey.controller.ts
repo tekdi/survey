@@ -36,7 +36,6 @@ import { JwtAuthGuard } from '@/common/guards/keycloak.guard';
 import { AllExceptionsFilter } from '@/common/filters/exception.filter';
 import { GetTenantId } from '@/common/decorators/tenant.decorator';
 import { GetUserId } from '@/common/decorators/current-user.decorator';
-import { GetUserRoles } from '@/common/decorators/roles.decorator';
 
 @ApiTags('surveys')
 @ApiBearerAuth()
@@ -70,9 +69,8 @@ export class SurveyController {
     @Body() pagination: PaginationDto,
     @Res() response: Response,
     @GetTenantId() tenantId: string,
-    @GetUserRoles() userRoles: string[],
   ) {
-    return this.surveyService.findAll(request, tenantId, pagination, userRoles, response);
+    return this.surveyService.findAll(request, tenantId, pagination, response);
   }
 
   @UseFilters(new AllExceptionsFilter(APIID.SURVEY_READ))

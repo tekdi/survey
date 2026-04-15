@@ -157,7 +157,6 @@ export class SurveyService {
     request: Request,
     tenantId: string,
     pagination: PaginationDto,
-    userRoles: string[],
     response: Response,
   ) {
     const apiId = APIID.SURVEY_LIST;
@@ -166,24 +165,25 @@ export class SurveyService {
       const sortOrder = pagination.sortOrder || 'DESC';
       const page = pagination.page || 1;
       const limit = pagination.limit || 20;
-
-      const isAdmin = userRoles.includes('admin');
+      const filters = pagination.filters;
 
       let queryBuilder = this.surveyRepo
         .createQueryBuilder('survey')
         .where('survey.tenantId = :tenantId', { tenantId });
 
-      // Admin sees all surveys; non-admin sees only surveys targeted to their role (or with no target restriction)
-      if (!isAdmin && userRoles.length > 0) {
-        // Check if ANY of the user's roles exist in survey.targetRoles JSONB array
-        // In TypeORM, ?? escapes the literal ? character for PostgreSQL's ?| operator
+      // Filter by targetRoles if provided
+      if (filters?.targetRoles?.length) {
         queryBuilder = queryBuilder.andWhere(
-          '(survey."targetRoles" IS NULL OR survey."targetRoles" ??| ARRAY[:...userRoles])',
-          { userRoles },
+          '(survey."targetRoles" IS NULL OR survey."targetRoles" ??| ARRAY[:...targetRoles])',
+          { targetRoles: filters.targetRoles },
         );
-      } else if (!isAdmin) {
-        // No roles at all — only show surveys with no role restriction
-        queryBuilder = queryBuilder.andWhere('survey."targetRoles" IS NULL');
+      }
+
+      // Filter by status if provided
+      if (filters?.status) {
+        queryBuilder = queryBuilder.andWhere('survey.status = :status', {
+          status: filters.status,
+        });
       }
 
       const [surveys, total] = await queryBuilder
