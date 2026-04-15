@@ -134,7 +134,7 @@ export class ResponseService {
       return APIResponse.success(
         response,
         apiId,
-        { data: saved },
+        saved,
         HttpStatus.CREATED,
         RESPONSE_MESSAGES.RESPONSE_CREATE_SUCCESS,
       );
@@ -186,7 +186,7 @@ export class ResponseService {
       return APIResponse.success(
         response,
         apiId,
-        { data: result },
+        result,
         HttpStatus.OK,
         RESPONSE_MESSAGES.RESPONSE_LIST_SUCCESS,
       );
@@ -225,7 +225,7 @@ export class ResponseService {
       return APIResponse.success(
         response,
         apiId,
-        { data: surveyResponse },
+        surveyResponse,
         HttpStatus.OK,
         RESPONSE_MESSAGES.RESPONSE_READ_SUCCESS,
       );
@@ -322,7 +322,7 @@ export class ResponseService {
       return APIResponse.success(
         response,
         apiId,
-        { data: saved },
+        saved,
         HttpStatus.OK,
         RESPONSE_MESSAGES.RESPONSE_UPDATE_SUCCESS,
       );
@@ -434,7 +434,7 @@ export class ResponseService {
       return APIResponse.success(
         response,
         apiId,
-        { data: saved },
+        saved,
         HttpStatus.OK,
         RESPONSE_MESSAGES.RESPONSE_SUBMIT_SUCCESS,
       );
@@ -494,7 +494,7 @@ export class ResponseService {
       return APIResponse.success(
         response,
         apiId,
-        { data: result },
+        result,
         HttpStatus.OK,
         RESPONSE_MESSAGES.RESPONSE_STATS_SUCCESS,
       );

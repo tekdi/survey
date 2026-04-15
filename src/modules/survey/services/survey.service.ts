@@ -125,7 +125,7 @@ export class SurveyService {
         return APIResponse.success(
           response,
           apiId,
-          { data: result },
+          result,
           HttpStatus.CREATED,
           RESPONSE_MESSAGES.SURVEY_CREATE_SUCCESS,
         );
@@ -207,7 +207,7 @@ export class SurveyService {
       return APIResponse.success(
         response,
         apiId,
-        { data: result },
+        result,
         HttpStatus.OK,
         RESPONSE_MESSAGES.SURVEY_LIST_SUCCESS,
       );
@@ -246,7 +246,7 @@ export class SurveyService {
       return APIResponse.success(
         response,
         apiId,
-        { data: survey },
+        survey,
         HttpStatus.OK,
         RESPONSE_MESSAGES.SURVEY_READ_SUCCESS,
       );
@@ -316,7 +316,7 @@ export class SurveyService {
       return APIResponse.success(
         response,
         apiId,
-        { data: result },
+        result,
         HttpStatus.OK,
         RESPONSE_MESSAGES.SURVEY_UPDATE_SUCCESS,
       );
@@ -395,7 +395,7 @@ export class SurveyService {
       return APIResponse.success(
         response,
         apiId,
-        { data: survey },
+        survey,
         HttpStatus.OK,
         RESPONSE_MESSAGES.SURVEY_PUBLISH_SUCCESS,
       );
@@ -453,7 +453,7 @@ export class SurveyService {
       return APIResponse.success(
         response,
         apiId,
-        { data: survey },
+        survey,
         HttpStatus.OK,
         RESPONSE_MESSAGES.SURVEY_CLOSE_SUCCESS,
       );
@@ -509,7 +509,7 @@ export class SurveyService {
       return APIResponse.success(
         response,
         apiId,
-        { data: { surveyId } },
+        { surveyId },
         HttpStatus.OK,
         RESPONSE_MESSAGES.SURVEY_DELETE_SUCCESS,
       );
