@@ -186,6 +186,13 @@ export class SurveyService {
         });
       }
 
+      // Filter by contextType if provided
+      if (filters?.contextType) {
+        queryBuilder = queryBuilder.andWhere('survey.contextType = :contextType', {
+          contextType: filters.contextType,
+        });
+      }
+
       const [surveys, total] = await queryBuilder
         .orderBy(`survey.${sortBy}`, sortOrder)
         .skip(pagination.skip)
