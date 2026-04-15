@@ -26,7 +26,13 @@ async function bootstrap() {
   app.enableCors({
     origin: corsOrigins,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'tenantid', 'rbac_token'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'tenantid',
+      'academicyearid',
+      'rbac_token',
+    ],
   });
 
   // Global prefix — matches user-microservice pattern: survey/v1
