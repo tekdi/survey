@@ -1,0 +1,22 @@
+name: Deploy Survey Dev
+
+on:
+  push:
+    branches:
+      - dev-release
+
+jobs:
+  deploy:
+    name: Deploy to server
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: SSH and deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEV_SSH_HOST }}
+          username: ${{ secrets.DEV_SSH_USER }}
+          key: ${{ secrets.DEV_SSH_PRIVATE_KEY }}
+          script: |
+            cd ~/Microservices/survey-dev-configs
+            ./deploy.sh dev-release
