@@ -532,14 +532,32 @@ export class ResponseService {
     return surveyResponse;
   }
 
+  private isConditionMet(field: any, allFields: any[], responseData: Record<string, any>): boolean {
+    const logic = field.conditionalLogic;
+    if (!logic || !logic.depends_on || !logic.show_if) return true;
+
+    const parentField = allFields.find(f => f.fieldName === logic.depends_on);
+    if (!parentField) return true;
+
+    const parentValue = responseData[parentField.fieldId];
+    const showIf: string[] = logic.show_if;
+
+    if (Array.isArray(parentValue)) {
+      return parentValue.some(v => showIf.includes(v));
+    }
+    return showIf.includes(parentValue);
+  }
+
   private validateRequiredFields(survey: any, surveyResponse: SurveyResponse): void {
     const errors: string[] = [];
 
+    const allFields = (survey.sections || []).flatMap((s: any) => s.fields || []);
+
     for (const section of survey.sections || []) {
       for (const field of section.fields || []) {
-        if (field.isRequired) {
-          const value = surveyResponse.responseData[field.fieldId];
-          const fileIds = surveyResponse.fileUploadIds[field.fieldId];
+        if (field.isRequired && this.isConditionMet(field, allFields, surveyResponse.responseData ?? {})) {
+          const value = (surveyResponse.responseData ?? {})[field.fieldId];
+          const fileIds = (surveyResponse.fileUploadIds ?? {})[field.fieldId];
 
           const isUploadField = ['image_upload', 'video_upload', 'file_upload'].includes(
             field.fieldType,
