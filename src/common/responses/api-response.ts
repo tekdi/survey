@@ -37,7 +37,7 @@ export class APIResponse {
         ts: new Date().toISOString(),
         params,
         responseCode: statusCode,
-        ...result,
+        result,
       };
       return response.status(statusCode).json(resObj);
     } catch (e) {

@@ -13,6 +13,11 @@ export class FiltersDto {
   @IsOptional()
   @IsString()
   status?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by context type (e.g. learner, none)' })
+  @IsOptional()
+  @IsString()
+  contextType?: string;
 }
 
 export class PaginationDto {

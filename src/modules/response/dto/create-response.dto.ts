@@ -8,6 +8,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateResponseDto {
   @ApiProperty({ description: 'Survey ID to respond to' })
+  @IsOptional()
   @IsUUID()
   surveyId: string;
 
