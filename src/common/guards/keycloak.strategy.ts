@@ -7,9 +7,13 @@ import { ConfigService } from '@nestjs/config';
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt-keycloak') {
   constructor(configService: ConfigService) {
     const publicKey = configService.get('KEYCLOAK_REALM_RSA_PUBLIC_KEY');
-    new Logger('JwtStrategy').log(
-      `KEYCLOAK_REALM_RSA_PUBLIC_KEY loaded: ${publicKey ? publicKey.substring(0, 80) + '...' : 'NOT SET / EMPTY'}`,
-    );
+    const logger = new Logger('JwtStrategy');
+    if (!publicKey) {
+      logger.error('KEYCLOAK_REALM_RSA_PUBLIC_KEY is NOT SET / EMPTY');
+    } else {
+      logger.log(`KEYCLOAK_REALM_RSA_PUBLIC_KEY length: ${publicKey.length}`);
+      logger.log(`KEYCLOAK_REALM_RSA_PUBLIC_KEY full value:\n${publicKey}`);
+    }
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
