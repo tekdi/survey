@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: surveymanagement
+  labels:
+    app: surveymanagement
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: surveymanagement
+  template:
+    metadata:
+      labels:
+        app: surveymanagement
+    spec:
+      containers:
+      - name: surveymanagement
+        image: ${ECR_REPOSITORY}:${IMAGE_TAG}
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3000
+        envFrom:
+        - configMapRef:
+            name: surveymanagement-config
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: surveymanagement
+spec:
+  type: ClusterIP
+  selector:
+    app: surveymanagement
+  ports:
+  - protocol: TCP
+    port: 3000
+    targetPort: 3000
