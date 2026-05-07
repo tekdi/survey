@@ -31,7 +31,6 @@ async function bootstrap() {
       'Authorization',
       'tenantid',
       'academicyearid',
-      'rbac_token',
     ],
   });
 
