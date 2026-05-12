@@ -119,6 +119,8 @@ export class ResponseService {
           surveyId: saved.surveyId,
           tenantId: saved.tenantId,
           respondentId: saved.respondentId,
+          contextType: saved.contextType,
+          contextId: saved.contextId,
           status: saved.status,
         }, saved.responseId)
         .catch((err) => 
@@ -307,7 +309,10 @@ export class ResponseService {
           responseId: saved.responseId,
           surveyId: saved.surveyId,
           tenantId: saved.tenantId,
+          contextType: saved.contextType,
+          contextId: saved.contextId,
           status: saved.status,
+          responseData: saved.responseData,
         }, saved.responseId)
         .catch((err) => 
           this.loggerService.error('Kafka publish failed', err.message, apiId, userId)
@@ -417,6 +422,8 @@ export class ResponseService {
           surveyId: saved.surveyId,
           tenantId: saved.tenantId,
           respondentId: saved.respondentId,
+          contextType: saved.contextType,
+          contextId: saved.contextId,
           status: saved.status,
           responseData: saved.responseData,
           submittedAt: saved.submittedAt,
