@@ -1,0 +1,7 @@
+Question ID (optional),Section Name *,Display Order,Field Name *,Question *,Question Type *,Required?,Placeholder (optional),Option R1,Option R2,Option R3,Min Value (optional),Max Value (optional),File Upload Required,File Format,Helper Text (optional),⬇ Show only when Question ID →,⬇ Condition Operator →,⬇ Answer equals →
+,Personal Details,1,full_name,What is your full name?,Short Text,Yes,Enter your full name,,,,,,,,,,,
+,Personal Details,2,age,What is your age?,Number,Yes,Enter your age,,,, 1,120,,,,,,
+,Personal Details,3,gender,What is your gender?,Radio (Single Choice),Yes,,Male,Female,Other,,,,,,,,,
+,Personal Details,4,phone_number,What is your mobile number?,Mobile Number,No,Enter 10-digit number,,,,,,,,,,,
+,Health Info,5,has_chronic_illness,Do you have any chronic illness?,Radio (Single Choice),Yes,,Yes,No,,,,,,,,,,
+,Health Info,6,illness_details,Please describe your illness,Long Text,Yes,Describe here,,,,,,,,,has_chronic_illness,equals,Yes
