@@ -67,7 +67,7 @@ export class ResponseController {
   @ApiOkResponse({ description: 'Responses fetched successfully' })
   public async findAll(
     @Req() request: Request,
-    @Body() body: { page?: number; limit?: number; sortBy?: string; sortOrder?: 'ASC' | 'DESC' },
+    @Body() body: { page?: number; limit?: number; sortBy?: string; sortOrder?: 'ASC' | 'DESC'; contextIds?: string[] },
     @Res() response: Response,
     @GetTenantId() tenantId: string,
     @Param('surveyId', ParseUUIDPipe) surveyId: string,
