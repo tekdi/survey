@@ -6,7 +6,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Request, Response } from 'express';
 import {
   SurveyResponse,
@@ -160,7 +160,7 @@ export class ResponseService {
     request: Request,
     tenantId: string,
     surveyId: string,
-    pagination: { page?: number; limit?: number; sortBy?: string; sortOrder?: 'ASC' | 'DESC' },
+    pagination: { page?: number; limit?: number; sortBy?: string; sortOrder?: 'ASC' | 'DESC'; contextIds?: string[] },
     response: Response,
   ) {
     const apiId = APIID.RESPONSE_LIST;
@@ -172,7 +172,11 @@ export class ResponseService {
       const skip = (page - 1) * limit;
 
       const [responses, total] = await this.responseRepo.findAndCount({
-        where: { tenantId, surveyId },
+        where: {
+          tenantId,
+          surveyId,
+          ...(pagination.contextIds?.length ? { contextId: In(pagination.contextIds) } : {}),
+        },
         order: { [sortBy]: sortOrder },
         skip,
         take: limit,
