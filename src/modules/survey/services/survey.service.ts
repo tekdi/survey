@@ -58,6 +58,7 @@ export class SurveyService {
           theme: dto.theme || {},
           targetRoles: dto.target_roles || null,
           contextType: dto.context_type || SurveyContextType.NONE,
+          endDate: dto.end_date ? new Date(dto.end_date) : undefined,
           createdBy: userId,
           updatedBy: userId,
           status: SurveyStatus.DRAFT,
@@ -303,6 +304,7 @@ export class SurveyService {
         theme: dto.theme ?? survey.theme,
         targetRoles: dto.target_roles !== undefined ? (dto.target_roles || null) : survey.targetRoles,
         contextType: dto.context_type ?? survey.contextType,
+        endDate: dto.end_date !== undefined ? (dto.end_date ? new Date(dto.end_date) : null) : survey.endDate,
         version: survey.version + 1,
       });
 

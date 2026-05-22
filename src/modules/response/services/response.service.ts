@@ -57,6 +57,16 @@ export class ResponseService {
         throw new BadRequestException(RESPONSE_MESSAGES.RESPONSE_NOT_ACCEPTING);
       }
 
+      if (survey.endDate && new Date() > new Date(survey.endDate)) {
+        this.loggerService.error(
+          'BAD_REQUEST',
+          RESPONSE_MESSAGES.SURVEY_EXPIRED,
+          apiId,
+          userId,
+        );
+        throw new BadRequestException(RESPONSE_MESSAGES.SURVEY_EXPIRED);
+      }
+
       // Validate contextId is provided when survey requires a context entity
       const requiresContext = survey.contextType && 
         survey.contextType !== SurveyContextType.NONE && 

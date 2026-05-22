@@ -9,6 +9,7 @@ import {
   Min,
   MaxLength,
   IsNotEmpty,
+  IsDateString,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -155,6 +156,14 @@ export class CreateSurveyDto {
   @IsOptional()
   @IsEnum(SurveyContextType)
   context_type?: SurveyContextType;
+
+  @ApiPropertyOptional({
+    description: 'Date after which the survey can no longer be filled (ISO 8601)',
+    example: '2026-12-31T23:59:59.000Z',
+  })
+  @IsOptional()
+  @IsDateString()
+  end_date?: string;
 
   @ApiPropertyOptional({ type: [CreateSectionDto] })
   @IsOptional()
