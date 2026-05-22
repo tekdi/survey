@@ -87,4 +87,7 @@ export class Survey {
 
   @Column({ name: 'closedAt', type: 'timestamp with time zone', nullable: true })
   closedAt: Date;
+
+  @Column({ name: 'endDate', type: 'timestamp with time zone', nullable: true })
+  endDate: Date;
 }

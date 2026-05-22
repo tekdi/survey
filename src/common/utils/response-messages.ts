@@ -26,6 +26,7 @@ export const RESPONSE_MESSAGES = {
   RESPONSE_NOT_FOUND: 'Response not found',
   RESPONSE_ALREADY_SUBMITTED: 'Response already submitted',
   RESPONSE_NOT_ACCEPTING: 'Survey is not accepting responses',
+  SURVEY_EXPIRED: 'Survey has expired and is no longer accepting responses',
   RESPONSE_DUPLICATE_SUBMISSION: 'You have already submitted a response to this survey',
   RESPONSE_CANNOT_UPDATE: 'Cannot update a submitted response',
   RESPONSE_VALIDATION_FAILED: 'Validation failed',
