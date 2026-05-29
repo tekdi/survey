@@ -179,7 +179,7 @@ export class SurveyController {
   @ApiCreatedResponse({ description: 'Survey imported successfully (draft)' })
   @UseInterceptors(
     FileInterceptor('file', {
-      limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB max
+      limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB max
     }),
   )
   public async importExcel(
