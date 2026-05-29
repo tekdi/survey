@@ -35,7 +35,7 @@ export class SurveyService {
     private readonly loggerService: LoggerService,
     private readonly dataSourceService: DataSourceService,
     private readonly excelImportService: ExcelImportService,
-  ) { }
+  ) {}
 
   async create(
     request: Request,
@@ -794,12 +794,6 @@ export class SurveyService {
 
         await queryRunner.commitTransaction();
 
-        // Auto-publish logic (no need to populate external options during import)
-        await this.surveyRepo.update(
-          { tenantId, surveyId: savedSurvey.surveyId },
-          { status: SurveyStatus.PUBLISHED, publishedAt: new Date() },
-        );
-
         const loadedSurvey = await this.surveyRepo.findOne({
           where: { tenantId, surveyId: savedSurvey.surveyId },
           relations: ['sections', 'sections.fields'],
@@ -808,21 +802,14 @@ export class SurveyService {
           },
         });
 
-        // Publish events to Kafka
         this.kafkaService
           .publishSurveyEvent('created', loadedSurvey || { surveyId: savedSurvey.surveyId, tenantId }, savedSurvey.surveyId)
           .catch((err) =>
             this.loggerService.error('Kafka create publish failed', err.message, apiId, userId)
           );
 
-        this.kafkaService
-          .publishSurveyEvent('published', loadedSurvey || { surveyId: savedSurvey.surveyId, tenantId }, savedSurvey.surveyId)
-          .catch((err) =>
-            this.loggerService.error('Kafka publish event failed', err.message, apiId, userId)
-          );
-
         this.loggerService.log(
-          'Survey imported and published successfully',
+          'Survey imported successfully',
           apiId,
           userId,
         );
@@ -833,7 +820,7 @@ export class SurveyService {
           ts: new Date().toISOString(),
           result: {
             surveyId: savedSurvey.surveyId,
-            status: SurveyStatus.PUBLISHED,
+            status: SurveyStatus.DRAFT,
             survey_title: info.surveyTitle,
             questionsImported: fields.length,
           }

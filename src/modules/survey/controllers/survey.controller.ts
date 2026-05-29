@@ -176,7 +176,7 @@ export class SurveyController {
   @Post('import/excel')
   @ApiHeader({ name: 'tenantid' })
   @ApiConsumes('multipart/form-data')
-  @ApiCreatedResponse({ description: 'Survey imported and published successfully' })
+  @ApiCreatedResponse({ description: 'Survey imported successfully (draft)' })
   @UseInterceptors(
     FileInterceptor('file', {
       limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB max
