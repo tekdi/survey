@@ -555,18 +555,27 @@ export class ResponseService {
 
   private isConditionMet(field: any, allFields: any[], responseData: Record<string, any>): boolean {
     const logic = field.conditionalLogic;
-    if (!logic || !logic.depends_on || !logic.show_if) return true;
+    if (!logic || !Array.isArray(logic.conditions)) return true;
 
-    const parentField = allFields.find(f => f.fieldName === logic.depends_on);
-    if (!parentField) return true;
+    const allMatch = logic.conditions.every((cond: any) => {
+      const condField = allFields.find(f => f.fieldName === cond.fieldName);
+      if (!condField) return true;
+      const currentValue = responseData[condField.fieldId];
+      switch (cond.operator) {
+        case 'equals':                return String(currentValue ?? '') === String(cond.value ?? '');
+        case 'not_equals':            return String(currentValue ?? '') !== String(cond.value ?? '');
+        case 'contains':              return String(currentValue ?? '').toLowerCase().includes(String(cond.value ?? '').toLowerCase());
+        case 'greater_than':          return parseFloat(currentValue) > parseFloat(cond.value ?? '0');
+        case 'less_than':             return parseFloat(currentValue) < parseFloat(cond.value ?? '0');
+        case 'greater_than_or_equal': return parseFloat(currentValue) >= parseFloat(cond.value ?? '0');
+        case 'less_than_or_equal':    return parseFloat(currentValue) <= parseFloat(cond.value ?? '0');
+        case 'is_empty':              return currentValue === null || currentValue === undefined || currentValue === '';
+        case 'is_not_empty':          return currentValue !== null && currentValue !== undefined && currentValue !== '';
+        default:                      return true;
+      }
+    });
 
-    const parentValue = responseData[parentField.fieldId];
-    const showIf: string[] = logic.show_if;
-
-    if (Array.isArray(parentValue)) {
-      return parentValue.some(v => showIf.includes(v));
-    }
-    return showIf.includes(parentValue);
+    return logic.action === 'show' ? allMatch : !allMatch;
   }
 
   private validateRequiredFields(survey: any, surveyResponse: SurveyResponse): void {
