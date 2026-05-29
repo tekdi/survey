@@ -15,7 +15,10 @@ import {
   ValidationPipe,
   ParseUUIDPipe,
   HttpStatus,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiOperation,
@@ -23,6 +26,7 @@ import {
   ApiHeader,
   ApiCreatedResponse,
   ApiOkResponse,
+  ApiConsumes,
 } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 
@@ -72,6 +76,8 @@ export class SurveyController {
   ) {
     return this.surveyService.findAll(request, tenantId, pagination, response);
   }
+
+  
 
   @UseFilters(new AllExceptionsFilter(APIID.SURVEY_READ))
   @Get('read/:surveyId')
@@ -164,5 +170,25 @@ export class SurveyController {
     @Param('surveyId', ParseUUIDPipe) surveyId: string,
   ) {
     return this.surveyService.delete(request, tenantId, surveyId, response);
+  }
+
+  @UseFilters(new AllExceptionsFilter(APIID.SURVEY_IMPORT_EXCEL))
+  @Post('import/excel')
+  @ApiHeader({ name: 'tenantid' })
+  @ApiConsumes('multipart/form-data')
+  @ApiCreatedResponse({ description: 'Survey imported and published successfully' })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB max
+    }),
+  )
+  public async importExcel(
+    @Req() request: Request,
+    @Res() response: Response,
+    @GetTenantId() tenantId: string,
+    @GetUserId() userId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.surveyService.importExcel(request, tenantId, userId, file, response);
   }
 }

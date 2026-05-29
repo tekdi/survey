@@ -539,3 +539,33 @@ TEAM LEADER (viewing):
 LIFECYCLE:
  14. PATCH  /survey/:id/close                → Close survey (no more responses)
 ```
+
+---
+
+## Excel Import Flow (Single-Operation Creation & Auto-Publication)
+
+### API Call
+**`POST /api/v1/surveys/import/excel`** — handled by `SurveyController.importExcel()` → `SurveyService.importExcel()` → `ExcelImportService.parseAndValidate()`
+
+### Multipart Form Data
+- **`file`**: `.xlsx` Survey Template file containing two sheets: `SurveyInfo` and `Survey Questions`.
+
+### Process Flow
+1. **Multipart File Interception**: Express Multer intercepts the file. If file is missing or extension is not `.xlsx`, fails fast with `400 Bad Request`.
+2. **Sheet Existence Check**: Verifies `SurveyInfo` and `Survey Questions` sheets exist in the workbook.
+3. **Parse & Validate SurveyInfo**:
+   - Matches keys dynamically (case-insensitive, ignores spaces).
+   - Resolves `Tenant name` from the configured mapping map to standard Tenant UUID.
+   - Validates context type matches enums, date values are valid/not in the past, and startDate is before endDate.
+4. **Parse & Validate Survey Questions**:
+   - Dynamically locates the header row starting with "Question ID" (skipping legend rows).
+   - Maps column fields dynamically (using smart substring lookup).
+   - Validates question IDs, question types, min/max conditions, conditional forward reference logic, option columns, and file configurations.
+5. **Transactional Database Write**:
+   - Creates the Survey record in `draft` status.
+   - Creates one Default Section (title = "Default Section", display_order = 0).
+   - Creates all SurveyField records in order.
+6. **Auto-Publication**:
+   - Sets survey status to `published` and `publishedAt = now`.
+   - Fires `created` and `published` Kafka events in order.
+7. **Success Response (201)**: Returns the generated surveyId, status, and questionsImported count.
