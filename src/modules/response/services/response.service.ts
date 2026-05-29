@@ -575,7 +575,7 @@ export class ResponseService {
       }
     });
 
-    return logic.action === 'show' ? allMatch : !allMatch;
+    return logic.action === 'hide' ? !allMatch : allMatch;
   }
 
   private validateRequiredFields(survey: any, surveyResponse: SurveyResponse): void {
