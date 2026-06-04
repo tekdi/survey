@@ -166,23 +166,23 @@ export class CreateSurveyDto {
   end_date?: string;
 
   @ApiPropertyOptional({
-    description: 'Geographic target for the survey (e.g. district, state)',
-    example: { label: 'Maharashtra' },
-  })
-  @IsOptional()
-  target_geo?: Record<string, any>;
-
-  @ApiPropertyOptional({
-    description: 'Date from which the survey is rolled out (ISO 8601)',
-    example: '2026-06-01T00:00:00.000Z',
+    description: 'Date from which the survey becomes available (ISO 8601)',
+    example: '2026-01-01T00:00:00.000Z',
   })
   @IsOptional()
   @IsDateString()
   start_date?: string;
 
   @ApiPropertyOptional({
-    description: 'Academic year(s) the survey applies to',
-    example: ['2025-2026'],
+    description: 'Geographic target for the survey stored as JSON',
+    example: { label: 'Maharashtra State' },
+  })
+  @IsOptional()
+  target_geo?: Record<string, any>;
+
+  @ApiPropertyOptional({
+    description: 'Academic year(s) this survey applies to',
+    example: ['2025-26', '2026-27'],
     type: [String],
   })
   @IsOptional()
