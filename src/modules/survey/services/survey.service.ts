@@ -200,8 +200,8 @@ export class SurveyService {
       // Filter by academicYear if provided — checks if the stored array contains the given year
       if (filters?.academicYear) {
         queryBuilder = queryBuilder.andWhere(
-          'survey."academicYear" ?? :academicYear',
-          { academicYear: filters.academicYear },
+          `survey."academicYear" @> :academicYear::jsonb`,
+          { academicYear: JSON.stringify([filters.academicYear]) },
         );
       }
 
