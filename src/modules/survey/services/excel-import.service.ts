@@ -18,7 +18,7 @@ export interface ParsedSurveyInfo {
   targetGeo: { label: string } | null;
   contextType: SurveyContextType;
   surveyType: string;
-  academicYear?: string;
+  academicYear?: string[] | null;
   startDate?: Date;
   endDate?: Date;
 }
@@ -922,20 +922,6 @@ export class ExcelImportService {
         conditionalLogic,
       };
 
-      console.log('[Excel Import] Survey Question', {
-        row: r,
-        questionId: fieldName,
-        questionLabel: fieldLabel,
-        questionType: fieldTypeRaw,
-        mappedFieldType: fieldType,
-        isRequired,
-        validation: validationVal || undefined,
-        minValue: minStr || undefined,
-        maxValue: maxStr || undefined,
-        options,
-        conditionalLogic,
-      });
-
       parsedFields.push(parsedField);
 
       if (fieldName) {
@@ -947,8 +933,6 @@ export class ExcelImportService {
       throw new BadRequestException({ errors });
     }
 
-    console.log('[Excel Import] Total questions parsed:', parsedFields.length);
-
     return {
       info: {
         surveyTitle: surveyName,
@@ -957,7 +941,7 @@ export class ExcelImportService {
         targetGeo,
         contextType,
         surveyType,
-        academicYear,
+        academicYear: academicYear ? [academicYear] : null,
         startDate,
         endDate,
       },

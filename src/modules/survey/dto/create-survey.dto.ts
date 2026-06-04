@@ -165,6 +165,31 @@ export class CreateSurveyDto {
   @IsDateString()
   end_date?: string;
 
+  @ApiPropertyOptional({
+    description: 'Geographic target for the survey (e.g. district, state)',
+    example: { label: 'Maharashtra' },
+  })
+  @IsOptional()
+  target_geo?: Record<string, any>;
+
+  @ApiPropertyOptional({
+    description: 'Date from which the survey is rolled out (ISO 8601)',
+    example: '2026-06-01T00:00:00.000Z',
+  })
+  @IsOptional()
+  @IsDateString()
+  start_date?: string;
+
+  @ApiPropertyOptional({
+    description: 'Academic year(s) the survey applies to',
+    example: ['2025-2026'],
+    type: [String],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  academic_year?: string[];
+
   @ApiPropertyOptional({ type: [CreateSectionDto] })
   @IsOptional()
   @IsArray()
