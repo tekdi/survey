@@ -17,7 +17,7 @@ export interface ParsedSurveyInfo {
   targetRoles: string[] | null;
   targetGeo: { label: string } | null;
   contextType: SurveyContextType;
-  surveyType: string;
+  surveyType: string | null;
   academicYear?: string[] | null;
   startDate?: Date;
   endDate?: Date;
@@ -232,8 +232,7 @@ export class ExcelImportService {
     const infoSheet = workbook.getWorksheet('SurveyInfo');
     // Support both names (older/newer templates)
     const questionsSheet =
-      workbook.getWorksheet('Survey Questions') ||
-      workbook.getWorksheet('Sample Questions');
+      workbook.getWorksheet('Survey Questions');
 
     const errors: ExcelValidationError[] = [];
 
@@ -401,9 +400,11 @@ export class ExcelImportService {
     const contextType: SurveyContextType = ((contextParts[0] || SurveyContextType.NONE) as SurveyContextType);
 
     const surveyTypeStr = getInfoValue('TypeOfSurvey') || getInfoValue('Type of Survey');
-    const surveyType = surveyTypeStr ? surveyTypeStr.trim() : 'Single-entry';
+    const surveyType = surveyTypeStr ? surveyTypeStr.trim() : null;
 
-    const academicYear = getInfoValue('AcademicYear') || getInfoValue('Academic Year');
+    const academicYearRaw = getInfoValue('Academic Year') || getInfoValue('AcademicYear');
+    const academicYear = academicYearRaw
+      ? academicYearRaw.split(',').map(y => y.trim()).filter(Boolean) : null;
 
     const startDateStr = getInfoValue('SurveyRolloutStartDate');
     const endDateStr = getInfoValue('SurveyRolloutEndDate');
@@ -941,7 +942,7 @@ export class ExcelImportService {
         targetGeo,
         contextType,
         surveyType,
-        academicYear: academicYear ? [academicYear] : null,
+        academicYear: academicYear || null,
         startDate,
         endDate,
       },
