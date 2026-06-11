@@ -99,13 +99,4 @@ export class Survey {
 
   @Column({ name: 'endDate', type: 'timestamp with time zone', nullable: true })
   endDate: Date;
-
-  @Column({ name: 'startDate', type: 'timestamp with time zone', nullable: true })
-  startDate: Date;
-
-  @Column({ name: 'targetGeo', type: 'jsonb', nullable: true })
-  targetGeo: Record<string, any> | null;
-
-  @Column({ name: 'academicYear', type: 'jsonb', nullable: true })
-  academicYear: string[] | null;
 }
