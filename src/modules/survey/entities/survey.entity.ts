@@ -100,4 +100,3 @@ export class Survey {
   @Column({ name: 'endDate', type: 'timestamp with time zone', nullable: true })
   endDate: Date;
 }
-
