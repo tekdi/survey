@@ -19,6 +19,7 @@ import { RESPONSE_MESSAGES } from '@/common/utils/response-messages';
 import { KafkaService } from '@/kafka/kafka.service';
 import { LoggerService } from '@/common/logger/logger.service';
 import { DataSourceService } from './data-source.service';
+import { ExcelImportService } from './excel-import.service';
 
 @Injectable()
 export class SurveyService {
@@ -33,6 +34,7 @@ export class SurveyService {
     private readonly kafkaService: KafkaService,
     private readonly loggerService: LoggerService,
     private readonly dataSourceService: DataSourceService,
+    private readonly excelImportService: ExcelImportService,
   ) {}
 
   async create(
@@ -116,7 +118,7 @@ export class SurveyService {
         // Publish event to Kafka
         this.kafkaService
           .publishSurveyEvent('created', result, savedSurvey.surveyId)
-          .catch((err) => 
+          .catch((err) =>
             this.loggerService.error('Kafka publish failed', err.message, apiId, userId)
           );
 
@@ -327,7 +329,7 @@ export class SurveyService {
 
       this.kafkaService
         .publishSurveyEvent('updated', result, surveyId)
-        .catch((err) => 
+        .catch((err) =>
           this.loggerService.error('Kafka publish failed', err.message, apiId)
         );
 
@@ -406,7 +408,7 @@ export class SurveyService {
 
       this.kafkaService
         .publishSurveyEvent('published', survey, surveyId)
-        .catch((err) => 
+        .catch((err) =>
           this.loggerService.error('Kafka publish failed', err.message, apiId)
         );
 
@@ -464,7 +466,7 @@ export class SurveyService {
 
       this.kafkaService
         .publishSurveyEvent('closed', survey, surveyId)
-        .catch((err) => 
+        .catch((err) =>
           this.loggerService.error('Kafka publish failed', err.message, apiId)
         );
 
@@ -520,7 +522,7 @@ export class SurveyService {
 
       this.kafkaService
         .publishSurveyEvent('deleted', { surveyId, tenantId }, surveyId)
-        .catch((err) => 
+        .catch((err) =>
           this.loggerService.error('Kafka publish failed', err.message, apiId)
         );
 
@@ -695,6 +697,171 @@ export class SurveyService {
           }
         }
       }
+    }
+  }
+
+  async importExcel(
+    request: Request,
+    tenantId: string,
+    userId: string,
+    file: Express.Multer.File,
+    response: Response,
+  ) {
+    const apiId = APIID.SURVEY_IMPORT_EXCEL;
+    try {
+      if (!file) {
+        return response.status(HttpStatus.BAD_REQUEST).json({
+          id: apiId,
+          ver: '1.0',
+          ts: new Date().toISOString(),
+          params: { status: 'failed', errmsg: 'Validation failed' },
+          result: {
+            errors: [{ sheet: 'File', message: 'File is required' }]
+          }
+        });
+      }
+
+      const ext = file.originalname.split('.').pop()?.toLowerCase();
+      if (ext !== 'xlsx') {
+        return response.status(HttpStatus.BAD_REQUEST).json({
+          id: apiId,
+          ver: '1.0',
+          ts: new Date().toISOString(),
+          params: { status: 'failed', errmsg: 'Validation failed' },
+          result: {
+            errors: [{ sheet: 'File', message: 'Only .xlsx files are supported' }]
+          }
+        });
+      }
+
+      let parsed: { info: any; fields: any[] };
+      try {
+        parsed = await this.excelImportService.parseAndValidate(file.buffer, tenantId);
+      } catch (e) {
+        if (e instanceof BadRequestException && e.getResponse() && (e.getResponse() as any).errors) {
+          const errors = (e.getResponse() as any).errors;
+          return response.status(HttpStatus.BAD_REQUEST).json({
+            id: apiId,
+            ver: '1.0',
+            ts: new Date().toISOString(),
+            params: { status: 'failed', errmsg: 'Validation failed' },
+            result: { errors }
+          });
+        }
+        throw e;
+      }
+
+      const { info, fields } = parsed;
+
+      const queryRunner = this.dataSource.createQueryRunner();
+      await queryRunner.connect();
+      await queryRunner.startTransaction();
+
+      try {
+        const defaultTheme = { primaryColor: '#1976d2' };
+        const defaultSettings = { isAnonymous: false, allowMultipleSubmissions: true };
+
+        const survey = queryRunner.manager.create(Survey, {
+          tenantId,
+          surveyTitle: info.surveyTitle,
+          surveyDescription: info.surveyTitle,
+          surveyType: info.surveyType,
+          settings: defaultSettings,
+          theme: defaultTheme,
+          targetRoles: info.targetRoles,
+          targetGeo: info.targetGeo,
+          contextType: info.contextType,
+          startDate: info.startDate,
+          endDate: info.endDate,
+          academicYear: info.academicYear,
+          createdBy: userId,
+          updatedBy: userId,
+          status: SurveyStatus.DRAFT,
+        });
+        const savedSurvey = await queryRunner.manager.save(survey);
+
+        const defaultSectionTitle = `${info.surveyTitle} section`;
+        const section = queryRunner.manager.create(SurveySection, {
+          surveyId: savedSurvey.surveyId,
+          tenantId,
+          sectionTitle: defaultSectionTitle,
+          sectionDescription: defaultSectionTitle,
+          displayOrder: 0,
+          isVisible: true,
+          conditionalLogic: {},
+        });
+        const savedSection = await queryRunner.manager.save(section);
+
+        // Bulk insert fields to avoid N sequential INSERTs (import can be large).
+        const fieldEntities = fields.map((fieldData) =>
+          queryRunner.manager.create(SurveyField, {
+            ...fieldData,
+            sectionId: savedSection.sectionId,
+            surveyId: savedSurvey.surveyId,
+            tenantId,
+          }),
+        );
+
+        // Chunk to avoid parameter limits on very large imports.
+        const chunkSize = 500;
+        for (let i = 0; i < fieldEntities.length; i += chunkSize) {
+          await queryRunner.manager.save(SurveyField, fieldEntities.slice(i, i + chunkSize));
+        }
+
+        await queryRunner.commitTransaction();
+
+        const loadedSurvey = await this.surveyRepo.findOne({
+          where: { tenantId, surveyId: savedSurvey.surveyId },
+          relations: ['sections', 'sections.fields'],
+          order: {
+            sections: { displayOrder: 'ASC', fields: { displayOrder: 'ASC' } },
+          },
+        });
+
+        this.kafkaService
+          .publishSurveyEvent('created', loadedSurvey || { surveyId: savedSurvey.surveyId, tenantId }, savedSurvey.surveyId)
+          .catch((err) =>
+            this.loggerService.error('Kafka create publish failed', err.message, apiId, userId)
+          );
+
+        this.loggerService.log(
+          'Survey imported successfully',
+          apiId,
+          userId,
+        );
+
+        return response.status(HttpStatus.CREATED).json({
+          id: apiId,
+          ver: '1.0',
+          ts: new Date().toISOString(),
+          result: {
+            surveyId: savedSurvey.surveyId,
+            status: SurveyStatus.DRAFT,
+            survey_title: info.surveyTitle,
+            questionsImported: fields.length,
+          }
+        });
+      } catch (error) {
+        await queryRunner.rollbackTransaction();
+        throw error;
+      } finally {
+        await queryRunner.release();
+      }
+    } catch (e) {
+      const errorMessage = e.message || 'Internal Server Error';
+      this.loggerService.error(
+        'INTERNAL_SERVER_ERROR',
+        errorMessage,
+        apiId,
+        userId,
+      );
+      return response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+        id: apiId,
+        ver: '1.0',
+        ts: new Date().toISOString(),
+        params: { status: 'failed', errmsg: errorMessage },
+        result: {}
+      });
     }
   }
 }

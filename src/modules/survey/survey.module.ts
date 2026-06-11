@@ -5,13 +5,14 @@ import { SurveySection } from './entities/survey-section.entity';
 import { SurveyField } from './entities/survey-field.entity';
 import { SurveyService } from './services/survey.service';
 import { DataSourceService } from './services/data-source.service';
+import { ExcelImportService } from './services/excel-import.service';
 import { SurveyController } from './controllers/survey.controller';
 import { KafkaModule } from '@/kafka/kafka.module';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Survey, SurveySection, SurveyField]), KafkaModule],
   controllers: [SurveyController],
-  providers: [SurveyService, DataSourceService],
-  exports: [SurveyService, DataSourceService],
+  providers: [SurveyService, DataSourceService, ExcelImportService],
+  exports: [SurveyService, DataSourceService, ExcelImportService],
 })
 export class SurveyModule {}
