@@ -18,6 +18,11 @@ export class FiltersDto {
   @IsOptional()
   @IsString()
   contextType?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by academic year (e.g. 2025-26)' })
+  @IsOptional()
+  @IsString()
+  academicYear?: string;
 }
 
 export class PaginationDto {

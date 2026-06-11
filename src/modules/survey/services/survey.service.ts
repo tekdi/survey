@@ -61,6 +61,9 @@ export class SurveyService {
           targetRoles: dto.target_roles || null,
           contextType: dto.context_type || SurveyContextType.NONE,
           endDate: dto.end_date ? new Date(dto.end_date) : undefined,
+          startDate: dto.start_date ? new Date(dto.start_date) : undefined,
+          targetGeo: dto.target_geo || null,
+          academicYear: dto.academic_year || null,
           createdBy: userId,
           updatedBy: userId,
           status: SurveyStatus.DRAFT,
@@ -196,6 +199,14 @@ export class SurveyService {
         });
       }
 
+      // Filter by academicYear if provided — checks if the stored array contains the given year
+      if (filters?.academicYear) {
+        queryBuilder = queryBuilder.andWhere(
+          `survey."academicYear" @> :academicYear::jsonb`,
+          { academicYear: JSON.stringify([filters.academicYear]) },
+        );
+      }
+
       const [surveys, total] = await queryBuilder
         .orderBy(`survey.${sortBy}`, sortOrder)
         .skip(pagination.skip)
@@ -307,6 +318,9 @@ export class SurveyService {
         targetRoles: dto.target_roles !== undefined ? (dto.target_roles || null) : survey.targetRoles,
         contextType: dto.context_type ?? survey.contextType,
         endDate: dto.end_date !== undefined ? (dto.end_date ? new Date(dto.end_date) : null) : survey.endDate,
+        startDate: dto.start_date !== undefined ? (dto.start_date ? new Date(dto.start_date) : null) : survey.startDate,
+        targetGeo: dto.target_geo !== undefined ? (dto.target_geo || null) : survey.targetGeo,
+        academicYear: dto.academic_year !== undefined ? (dto.academic_year || null) : survey.academicYear,
         version: survey.version + 1,
       });
 
@@ -560,6 +574,9 @@ export class SurveyService {
         theme: original.theme,
         target_roles: original.targetRoles ?? undefined,
         context_type: original.contextType,
+        start_date: original.startDate ? original.startDate.toISOString() : undefined,
+        target_geo: original.targetGeo ?? undefined,
+        academic_year: original.academicYear ?? undefined,
         sections: original.sections?.map((section) => ({
           section_title: section.sectionTitle,
           section_description: section.sectionDescription,
