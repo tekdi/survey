@@ -157,6 +157,20 @@ export class ExcelImportService {
     return optionCols.sort((a, b) => a.order - b.order).map((o) => o.col);
   }
 
+  /**
+   * Converts an option label string into a { label, value } object.
+   * label = original text (e.g. "Arts")
+   * value = lowercased slug  (e.g. "arts", "second_chance" for "Second Chance")
+   */
+  private buildOptionItem(label: string): { label: string; value: string } {
+    const value = label
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+    return { label, value };
+  }
+
   private isLegendOrInstructionRow(values: {
     fieldName: string;
     fieldLabel: string;
@@ -382,9 +396,9 @@ export class ExcelImportService {
     const allowedContexts = ['learner', 'center', 'teacher', 'self', 'none'];
     const contextParts = contextRaw
       ? contextRaw
-          .split(',')
-          .map((c) => c.trim().toLowerCase())
-          .filter(Boolean)
+        .split(',')
+        .map((c) => c.trim().toLowerCase())
+        .filter(Boolean)
       : [];
 
     const invalidContexts = contextParts.filter((c) => !allowedContexts.includes(c));
@@ -616,6 +630,8 @@ export class ExcelImportService {
     }
 
     const parsedFields: ParsedSurveyField[] = [];
+    // Tracks each question's parsed options so conditional logic can resolve answer values
+    const fieldOptionsMap = new Map<string, { label: string; value: string }[]>();
 
     // Validate each row
     for (let i = 0; i < questionRows.length; i++) {
@@ -629,7 +645,8 @@ export class ExcelImportService {
       const maxStr = this.getCellValue(row.getCell(maxValCol)).trim();
       const options = optionCols
         .map((col) => this.getCellValue(row.getCell(col)).trim())
-        .filter(Boolean);
+        .filter(Boolean)
+        .map((label) => this.buildOptionItem(label));
       const allowOtherRaw = this.getCellValue(row.getCell(allowOtherCol)).trim().toLowerCase();
       const fileReqRaw = this.getCellValue(row.getCell(fileReqCol)).trim().toLowerCase();
       const fileFormatsRaw = this.getCellValue(row.getCell(fileFormatsCol)).trim();
@@ -834,7 +851,44 @@ export class ExcelImportService {
       }
 
       // Conditional Logic
-      const conditions: any[] = [];
+      /**
+       * Resolves a single option token (label or "Option N") to its stored value.
+       */
+      const resolveSingleToken = (refQuestionId: string, token: string): string => {
+        const refOptions = fieldOptionsMap.get(refQuestionId);
+        if (!refOptions || refOptions.length === 0) return token;
+
+        // Exact label match
+        const byLabel = refOptions.find(
+          (o) => o.label.trim().toLowerCase() === token.trim().toLowerCase(),
+        );
+        if (byLabel) return byLabel.value;
+
+        // Positional: "Option N"
+        const positional = token.trim().match(/^option\s*(\d+)$/i);
+        if (positional) {
+          const idx = parseInt(positional[1], 10) - 1;
+          if (idx >= 0 && idx < refOptions.length) return refOptions[idx].value;
+        }
+
+        return token;
+      };
+
+      /** Returns true if the answer string is a compound "Option N or|and M ..." expression */
+      const isCompoundAnswer = (raw: string): boolean =>
+        /^option\s+\d+(?:\s*(?:or|and)\s*\d+)+$/i.test(raw.trim());
+
+      /** Extracts and resolves all option values from a compound "Option N or M or K" string */
+      const resolveCompoundValues = (refQuestionId: string, raw: string): string[] => {
+        const inner = raw.trim().replace(/^option\s+/i, '');
+        return inner
+          .split(/\s*(?:or|and)\s*/i)
+          .map((n) => n.trim())
+          .filter(Boolean)
+          .map((n) => resolveSingleToken(refQuestionId, `option ${n}`));
+      };
+
+      // ── Validate conditional references ──────────────────────────────────────
       if (condQ1) {
         if (!previousQuestionIds.has(condQ1)) {
           errors.push({
@@ -852,7 +906,6 @@ export class ExcelImportService {
             message: 'Answer is required when Show when Question ID is filled',
           });
         }
-        conditions.push({ questionId: condQ1, answer: condA1 });
       }
 
       if (condQ2) {
@@ -872,7 +925,62 @@ export class ExcelImportService {
             message: 'Answer is required when AND: Question ID is filled',
           });
         }
-        conditions.push({ questionId: condQ2, answer: condA2 });
+      }
+
+      // ── Build conditionalLogic ────────────────────────────────────────────────
+      // Each answer is checked independently:
+      //   Compound (e.g. "Option 2 or 3 or 4") → show_if / depends_on
+      //   Simple  (e.g. "yes", "Option 2")      → conditions array entry
+      //
+      // Both can coexist:
+      // {
+      //   show_if: ["val2","val3",...], depends_on: "Q5",   ← from compound condA2
+      //   action: "show", conditions: [{...}]               ← from simple condA1
+      // }
+      let conditionalLogic: Record<string, any> | undefined;
+
+      if (condQ1 || condQ2) {
+        const logic: Record<string, any> = {};
+        const simpleConditions: any[] = [];
+
+        // ── condQ1 / condA1 ─────────────────────────────────────────
+        if (condQ1 && condA1) {
+          if (isCompoundAnswer(condA1)) {
+            // Compound → show_if format for condQ1
+            logic.show_if = resolveCompoundValues(condQ1, condA1);
+            logic.depends_on = condQ1;
+          } else {
+            simpleConditions.push({
+              value: resolveSingleToken(condQ1, condA1),
+              operator: 'equals',
+              fieldName: condQ1,
+            });
+          }
+        }
+
+        // ── condQ2 / condA2 ─────────────────────────────────────────
+        if (condQ2 && condA2) {
+          if (isCompoundAnswer(condA2)) {
+            // Compound → show_if format for condQ2
+            logic.show_if = resolveCompoundValues(condQ2, condA2);
+            logic.depends_on = condQ2;
+          } else {
+            simpleConditions.push({
+              value: resolveSingleToken(condQ2, condA2),
+              operator: 'equals',
+              fieldName: condQ2,
+            });
+          }
+        }
+
+        if (simpleConditions.length > 0) {
+          logic.action = 'show';
+          logic.conditions = simpleConditions;
+        }
+
+        if (Object.keys(logic).length > 0) {
+          conditionalLogic = logic;
+        }
       }
 
       // Map excel type to fieldType enum
@@ -896,16 +1004,15 @@ export class ExcelImportService {
         validations.max = max;
       }
 
+      // dataSource: { type: 'static', options: [{ label, value }], allowOther }
       const dataSource = ['radio', 'select', 'checkbox'].includes(fieldType)
-        ? { options, allowOther }
+        ? { type: 'static', options, allowOther }
         : undefined;
 
       const uploadConfig =
         fieldType === FieldType.FILE_UPLOAD
           ? { required: fileRequired, allowedFormats }
           : undefined;
-
-      const conditionalLogic = conditions.length > 0 ? { conditions } : undefined;
 
       const parsedField: ParsedSurveyField = {
         fieldName,
@@ -927,6 +1034,10 @@ export class ExcelImportService {
 
       if (fieldName) {
         previousQuestionIds.add(fieldName);
+        // Store options for this question so later conditional logic can resolve values
+        if (options.length > 0) {
+          fieldOptionsMap.set(fieldName, options);
+        }
       }
     }
 
