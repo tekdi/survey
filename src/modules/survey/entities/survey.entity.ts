@@ -64,6 +64,15 @@ export class Survey {
   @Column({ name: 'contextType', type: 'varchar', length: 30, default: SurveyContextType.NONE })
   contextType: SurveyContextType;
 
+  @Column({ name: 'targetGeo', type: 'jsonb', nullable: true })
+  targetGeo: Record<string, any> | null;
+
+  @Column({ name: 'startDate', type: 'timestamp with time zone', nullable: true })
+  startDate: Date;
+
+  @Column({ name: 'academicYear', type: 'jsonb', nullable: true })
+  academicYear: string[] | null;
+
   @Column({ name: 'createdBy', type: 'uuid' })
   createdBy: string;
 
@@ -90,13 +99,4 @@ export class Survey {
 
   @Column({ name: 'endDate', type: 'timestamp with time zone', nullable: true })
   endDate: Date;
-
-  @Column({ name: 'startDate', type: 'timestamp with time zone', nullable: true })
-  startDate: Date;
-
-  @Column({ name: 'targetGeo', type: 'jsonb', nullable: true })
-  targetGeo: Record<string, any> | null;
-
-  @Column({ name: 'academicYear', type: 'jsonb', nullable: true })
-  academicYear: string[] | null;
 }

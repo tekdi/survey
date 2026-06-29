@@ -8,6 +8,7 @@ export const APIID = {
   SURVEY_PUBLISH: 'api.survey.publish',
   SURVEY_CLOSE: 'api.survey.close',
   SURVEY_DUPLICATE: 'api.survey.duplicate',
+  SURVEY_IMPORT_EXCEL: 'api.survey.import.excel',
 
   // Response
   RESPONSE_CREATE: 'api.survey.response.create',

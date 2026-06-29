@@ -15,7 +15,10 @@ import {
   ValidationPipe,
   ParseUUIDPipe,
   HttpStatus,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiOperation,
@@ -23,6 +26,8 @@ import {
   ApiHeader,
   ApiCreatedResponse,
   ApiOkResponse,
+  ApiConsumes,
+  ApiBody,
 } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 
@@ -42,7 +47,7 @@ import { GetUserId } from '@/common/decorators/current-user.decorator';
 @Controller('surveys')
 @UseGuards(JwtAuthGuard)
 export class SurveyController {
-  constructor(private readonly surveyService: SurveyService) {}
+  constructor(private readonly surveyService: SurveyService) { }
 
   @UseFilters(new AllExceptionsFilter(APIID.SURVEY_CREATE))
   @Post('create')
@@ -72,6 +77,8 @@ export class SurveyController {
   ) {
     return this.surveyService.findAll(request, tenantId, pagination, response);
   }
+
+  
 
   @UseFilters(new AllExceptionsFilter(APIID.SURVEY_READ))
   @Get('read/:surveyId')
@@ -164,5 +171,34 @@ export class SurveyController {
     @Param('surveyId', ParseUUIDPipe) surveyId: string,
   ) {
     return this.surveyService.delete(request, tenantId, surveyId, response);
+  }
+
+  @UseFilters(new AllExceptionsFilter(APIID.SURVEY_IMPORT_EXCEL))
+  @Post('import/excel')
+  @ApiHeader({ name: 'tenantid' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary', description: 'Survey template .xlsx file' },
+      },
+      required: ['file'],
+    },
+  })
+  @ApiCreatedResponse({ description: 'Survey imported successfully (draft)' })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB max
+    }),
+  )
+  public async importExcel(
+    @Req() request: Request,
+    @Res() response: Response,
+    @GetTenantId() tenantId: string,
+    @GetUserId() userId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.surveyService.importExcel(request, tenantId, userId, file, response);
   }
 }
