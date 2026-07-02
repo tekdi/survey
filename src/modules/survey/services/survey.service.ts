@@ -776,7 +776,7 @@ export class SurveyService {
           academicYear: info.academicYear,
           createdBy: userId,
           updatedBy: userId,
-          status: SurveyStatus.DRAFT,
+          status: SurveyStatus.PUBLISHED,
         });
         const savedSurvey = await queryRunner.manager.save(survey);
 
@@ -836,7 +836,7 @@ export class SurveyService {
           ts: new Date().toISOString(),
           result: {
             surveyId: savedSurvey.surveyId,
-            status: SurveyStatus.DRAFT,
+            status: SurveyStatus.PUBLISHED,
             survey_title: info.surveyTitle,
             questionsImported: fields.length,
           }
