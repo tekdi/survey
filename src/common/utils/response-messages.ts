@@ -23,6 +23,7 @@ export const RESPONSE_MESSAGES = {
   RESPONSE_UPDATE_SUCCESS: 'Response updated successfully',
   RESPONSE_SUBMIT_SUCCESS: 'Response submitted successfully',
   RESPONSE_STATS_SUCCESS: 'Response statistics fetched successfully',
+  RESPONSE_LIST_BY_COHORT_SUCCESS: 'Cohort response list fetched successfully',
   RESPONSE_NOT_FOUND: 'Response not found',
   RESPONSE_ALREADY_SUBMITTED: 'Response already submitted',
   RESPONSE_NOT_ACCEPTING: 'Survey is not accepting responses',

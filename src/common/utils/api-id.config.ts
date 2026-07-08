@@ -17,6 +17,7 @@ export const APIID = {
   RESPONSE_UPDATE: 'api.survey.response.update',
   RESPONSE_SUBMIT: 'api.survey.response.submit',
   RESPONSE_STATS: 'api.survey.response.stats',
+  RESPONSE_LIST_BY_COHORT: 'api.survey.response.listByCohort',
 
   // File Upload
   FILE_UPLOAD: 'api.survey.file.upload',

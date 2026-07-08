@@ -482,30 +482,67 @@ export class ResponseService {
     tenantId: string,
     surveyId: string,
     response: Response,
+    cohortId?: string,
   ) {
     const apiId = APIID.RESPONSE_STATS;
     try {
-      const stats = await this.responseRepo
-        .createQueryBuilder('r')
-        .select([
-          'COUNT(*) as "totalResponses"',
-          'COUNT(CASE WHEN r.status = :submitted THEN 1 END) as "submittedResponses"',
-          'COUNT(CASE WHEN r.status = :inProgress THEN 1 END) as "inProgressResponses"',
-        ])
-        .where('r."tenantId" = :tenantId AND r."surveyId" = :surveyId', {
-          tenantId,
-          surveyId,
-          submitted: ResponseStatus.SUBMITTED,
-          inProgress: ResponseStatus.IN_PROGRESS,
-        })
-        .getRawOne();
+      let result: Record<string, number>;
 
-      const result = {
-        totalResponses: parseInt(stats.totalResponses, 10),
-        submittedResponses: parseInt(stats.submittedResponses, 10),
-        inProgressResponses: parseInt(stats.inProgressResponses, 10),
-        averageTimeSpent: 0,
-      };
+      if (cohortId) {
+        // Cohort-scoped: a learner can have multiple response rows for the same
+        // survey+cohort once resubmissions are allowed, so count each learner once,
+        // by their most recent response's status.
+        const rows = await this.responseRepo.manager
+          .createQueryBuilder()
+          .select('latest.status', 'status')
+          .addSelect('COUNT(*)', 'count')
+          .from((subQuery) => {
+            return subQuery
+              .select('r."contextId"', 'contextId')
+              .addSelect('r.status', 'status')
+              .from(SurveyResponse, 'r')
+              .distinctOn(['r."contextId"'])
+              .where('r."tenantId" = :tenantId', { tenantId })
+              .andWhere('r."surveyId" = :surveyId', { surveyId })
+              .andWhere(`r."responseMetadata"->>'cohortId' = :cohortId`, { cohortId })
+              .orderBy('r."contextId"', 'ASC')
+              .addOrderBy('r."updatedAt"', 'DESC');
+          }, 'latest')
+          .groupBy('latest.status')
+          .getRawMany();
+
+        const completed =
+          rows.find((r) => r.status === ResponseStatus.SUBMITTED)?.count ?? 0;
+        const inProgress =
+          rows.find((r) => r.status === ResponseStatus.IN_PROGRESS)?.count ?? 0;
+
+        result = {
+          completed: parseInt(completed, 10) || 0,
+          inProgress: parseInt(inProgress, 10) || 0,
+        };
+      } else {
+        const stats = await this.responseRepo
+          .createQueryBuilder('r')
+          .select([
+            'COUNT(*) as "totalResponses"',
+            'COUNT(CASE WHEN r.status = :submitted THEN 1 END) as "submittedResponses"',
+            'COUNT(CASE WHEN r.status = :inProgress THEN 1 END) as "inProgressResponses"',
+          ])
+          .where('r."tenantId" = :tenantId AND r."surveyId" = :surveyId', {
+            tenantId,
+            surveyId,
+            submitted: ResponseStatus.SUBMITTED,
+            inProgress: ResponseStatus.IN_PROGRESS,
+          })
+          .getRawOne();
+
+        result = {
+          totalResponses: parseInt(stats.totalResponses, 10),
+          submittedResponses: parseInt(stats.submittedResponses, 10),
+          inProgressResponses: parseInt(stats.inProgressResponses, 10),
+          averageTimeSpent: 0,
+        };
+      }
 
       this.loggerService.log(
         RESPONSE_MESSAGES.RESPONSE_STATS_SUCCESS,
@@ -518,6 +555,71 @@ export class ResponseService {
         result,
         HttpStatus.OK,
         RESPONSE_MESSAGES.RESPONSE_STATS_SUCCESS,
+      );
+    } catch (e) {
+      const errorMessage = e.message || 'Internal Server Error';
+      this.loggerService.error(
+        'INTERNAL_SERVER_ERROR',
+        errorMessage,
+        apiId,
+      );
+      return APIResponse.error(
+        response,
+        apiId,
+        errorMessage,
+        e.name || 'Internal Server Error',
+        e.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Per-learner status for a survey+cohort — one row per learner who has responded
+   * (their most recent response's status), deduped the same way as getStats' cohort
+   * branch. Learners with no row are "not started", which the caller derives by
+   * diffing this list against the cohort's full roster (survey service has no
+   * visibility into batch membership).
+   */
+  async getResponseListByCohort(
+    request: Request,
+    tenantId: string,
+    surveyId: string,
+    cohortId: string,
+    response: Response,
+  ) {
+    const apiId = APIID.RESPONSE_LIST_BY_COHORT;
+    try {
+      const rows = await this.responseRepo.manager
+        .createQueryBuilder()
+        .select('r."contextId"', 'contextId')
+        .addSelect('r.status', 'status')
+        .addSelect('r."submittedAt"', 'submittedAt')
+        .from(SurveyResponse, 'r')
+        .distinctOn(['r."contextId"'])
+        .where('r."tenantId" = :tenantId', { tenantId })
+        .andWhere('r."surveyId" = :surveyId', { surveyId })
+        .andWhere(`r."responseMetadata"->>'cohortId' = :cohortId`, { cohortId })
+        .orderBy('r."contextId"', 'ASC')
+        .addOrderBy('r."updatedAt"', 'DESC')
+        .getRawMany();
+
+      const result = rows.map((r) => ({
+        contextId: r.contextId,
+        status: r.status,
+        submittedAt: r.submittedAt,
+      }));
+
+      this.loggerService.log(
+        RESPONSE_MESSAGES.RESPONSE_LIST_BY_COHORT_SUCCESS,
+        apiId,
+      );
+
+      return APIResponse.success(
+        response,
+        apiId,
+        result,
+        HttpStatus.OK,
+        RESPONSE_MESSAGES.RESPONSE_LIST_BY_COHORT_SUCCESS,
       );
     } catch (e) {
       const errorMessage = e.message || 'Internal Server Error';

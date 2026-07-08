@@ -5,6 +5,7 @@ import {
   Put,
   Param,
   Body,
+  Query,
   Req,
   Res,
   UseGuards,
@@ -84,8 +85,23 @@ export class ResponseController {
     @Res() response: Response,
     @GetTenantId() tenantId: string,
     @Param('surveyId', ParseUUIDPipe) surveyId: string,
+    @Query('cohortId') cohortId?: string,
   ) {
-    return this.responseService.getStats(request, tenantId, surveyId, response);
+    return this.responseService.getStats(request, tenantId, surveyId, response, cohortId);
+  }
+
+  @UseFilters(new AllExceptionsFilter(APIID.RESPONSE_LIST_BY_COHORT))
+  @Get('list-by-cohort/:surveyId')
+  @ApiHeader({ name: 'tenantid' })
+  @ApiOkResponse({ description: 'Cohort response list fetched successfully' })
+  public async getResponseListByCohort(
+    @Req() request: Request,
+    @Res() response: Response,
+    @GetTenantId() tenantId: string,
+    @Param('surveyId', ParseUUIDPipe) surveyId: string,
+    @Query('cohortId') cohortId: string,
+  ) {
+    return this.responseService.getResponseListByCohort(request, tenantId, surveyId, cohortId, response);
   }
 
   @UseFilters(new AllExceptionsFilter(APIID.RESPONSE_READ))
