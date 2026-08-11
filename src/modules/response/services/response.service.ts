@@ -22,7 +22,7 @@ import { APIResponse } from '@/common/responses/api-response';
 import { APIID } from '@/common/utils/api-id.config';
 import { RESPONSE_MESSAGES } from '@/common/utils/response-messages';
 import { SurveyService } from '@/modules/survey/services/survey.service';
-import { SurveyStatus, SurveyContextType } from '@/modules/survey/entities/survey.entity';
+import { SurveyStatus, SurveyContextType, SurveyEntryType } from '@/modules/survey/entities/survey.entity';
 import { KafkaService } from '@/kafka/kafka.service';
 import { LoggerService } from '@/common/logger/logger.service';
 
@@ -78,22 +78,44 @@ export class ResponseService {
         );
       }
 
-      // Check if multiple submissions allowed
-      if (!survey.settings?.allowMultipleSubmissions) {
+      // Both single and multi entry: resume an existing IN_PROGRESS response
+      // instead of creating a duplicate draft row.
+      const inProgressWhere: any = {
+        tenantId,
+        surveyId: dto.surveyId,
+        respondentId: userId,
+        status: ResponseStatus.IN_PROGRESS,
+      };
+      if (requiresContext && dto.contextId) {
+        inProgressWhere.contextId = dto.contextId;
+      }
+      const existingInProgress = await this.responseRepo.findOne({ where: inProgressWhere });
+      if (existingInProgress) {
+        this.loggerService.log(RESPONSE_MESSAGES.RESPONSE_CREATE_SUCCESS, apiId, userId);
+        return APIResponse.success(
+          response,
+          apiId,
+          existingInProgress,
+          HttpStatus.OK,
+          RESPONSE_MESSAGES.RESPONSE_CREATE_SUCCESS,
+        );
+      }
+
+      // Single entry only: block starting a new response once one has been submitted.
+      if (survey.surveyType !== SurveyEntryType.MULTI) {
         const duplicateWhere: any = {
           tenantId,
           surveyId: dto.surveyId,
           respondentId: userId,
           status: ResponseStatus.SUBMITTED,
         };
-        // If survey has context, check duplicate per context entity
         if (requiresContext && dto.contextId) {
           duplicateWhere.contextId = dto.contextId;
         }
-        const existing = await this.responseRepo.findOne({
+        const existingSubmitted = await this.responseRepo.findOne({
           where: duplicateWhere,
         });
-        if (existing) {
+        if (existingSubmitted) {
           this.loggerService.error(
             'BAD_REQUEST',
             RESPONSE_MESSAGES.RESPONSE_DUPLICATE_SUBMISSION,
@@ -170,7 +192,7 @@ export class ResponseService {
     request: Request,
     tenantId: string,
     surveyId: string,
-    pagination: { page?: number; limit?: number; sortBy?: string; sortOrder?: 'ASC' | 'DESC'; contextIds?: string[] },
+    pagination: { page?: number; limit?: number; sortBy?: string; sortOrder?: 'ASC' | 'DESC'; contextIds?: string[]; status?: ResponseStatus },
     response: Response,
   ) {
     const apiId = APIID.RESPONSE_LIST;
@@ -186,6 +208,7 @@ export class ResponseService {
           tenantId,
           surveyId,
           ...(pagination.contextIds?.length ? { contextId: In(pagination.contextIds) } : {}),
+          ...(pagination.status ? { status: pagination.status } : {}),
         },
         order: { [sortBy]: sortOrder },
         skip,
@@ -489,37 +512,19 @@ export class ResponseService {
       let result: Record<string, number>;
 
       if (cohortId) {
-        // Cohort-scoped: a learner can have multiple response rows for the same
-        // survey+cohort once resubmissions are allowed, so count each learner once,
-        // by their most recent response's status.
-        const rows = await this.responseRepo.manager
-          .createQueryBuilder()
-          .select('latest.status', 'status')
-          .addSelect('COUNT(*)', 'count')
-          .from((subQuery) => {
-            return subQuery
-              .select('r."contextId"', 'contextId')
-              .addSelect('r.status', 'status')
-              .from(SurveyResponse, 'r')
-              .distinctOn(['r."contextId"'])
-              .where('r."tenantId" = :tenantId', { tenantId })
-              .andWhere('r."surveyId" = :surveyId', { surveyId })
-              .andWhere(`r."responseMetadata"->>'cohortId' = :cohortId`, { cohortId })
-              .orderBy('r."contextId"', 'ASC')
-              .addOrderBy('r."updatedAt"', 'DESC');
-          }, 'latest')
-          .groupBy('latest.status')
-          .getRawMany();
+        // Cohort-scoped: count each learner as completed once they have at
+        // least one SUBMITTED entry, regardless of how many entries a
+        // multi-entry survey has accumulated for them.
+        const aggregates = await this.getCohortAggregates(tenantId, surveyId, cohortId);
 
-        const completed =
-          rows.find((r) => r.status === ResponseStatus.SUBMITTED)?.count ?? 0;
-        const inProgress =
-          rows.find((r) => r.status === ResponseStatus.IN_PROGRESS)?.count ?? 0;
+        let completed = 0;
+        let inProgress = 0;
+        aggregates.forEach((a) => {
+          if (a.submittedCount > 0) completed++;
+          else if (a.hasInProgress) inProgress++;
+        });
 
-        result = {
-          completed: parseInt(completed, 10) || 0,
-          inProgress: parseInt(inProgress, 10) || 0,
-        };
+        result = { completed, inProgress };
       } else {
         const stats = await this.responseRepo
           .createQueryBuilder('r')
@@ -574,9 +579,10 @@ export class ResponseService {
   }
 
   /**
-   * Per-learner status for a survey+cohort — one row per learner who has responded
-   * (their most recent response's status), deduped the same way as getStats' cohort
-   * branch. Learners with no row are "not started", which the caller derives by
+   * Per-learner submission counts for a survey+cohort — one row per learner who
+   * has at least one response row, with how many are SUBMITTED (0, 1, or many
+   * for multi-entry surveys) and whether an in-progress draft also exists.
+   * Learners with no row at all are "not started", which the caller derives by
    * diffing this list against the cohort's full roster (survey service has no
    * visibility into batch membership).
    */
@@ -589,25 +595,7 @@ export class ResponseService {
   ) {
     const apiId = APIID.RESPONSE_LIST_BY_COHORT;
     try {
-      const rows = await this.responseRepo.manager
-        .createQueryBuilder()
-        .select('r."contextId"', 'contextId')
-        .addSelect('r.status', 'status')
-        .addSelect('r."submittedAt"', 'submittedAt')
-        .from(SurveyResponse, 'r')
-        .distinctOn(['r."contextId"'])
-        .where('r."tenantId" = :tenantId', { tenantId })
-        .andWhere('r."surveyId" = :surveyId', { surveyId })
-        .andWhere(`r."responseMetadata"->>'cohortId' = :cohortId`, { cohortId })
-        .orderBy('r."contextId"', 'ASC')
-        .addOrderBy('r."updatedAt"', 'DESC')
-        .getRawMany();
-
-      const result = rows.map((r) => ({
-        contextId: r.contextId,
-        status: r.status,
-        submittedAt: r.submittedAt,
-      }));
+      const result = await this.getCohortAggregates(tenantId, surveyId, cohortId);
 
       this.loggerService.log(
         RESPONSE_MESSAGES.RESPONSE_LIST_BY_COHORT_SUCCESS,
@@ -639,6 +627,37 @@ export class ResponseService {
   }
 
   // --- Internal helpers (no response object) ---
+
+  /**
+   * Per-learner aggregate for a survey+cohort: how many SUBMITTED entries they
+   * have (0, 1, or many for multi-entry surveys) and whether an in-progress
+   * draft also exists. One row per contextId that has at least one response row.
+   */
+  private async getCohortAggregates(
+    tenantId: string,
+    surveyId: string,
+    cohortId: string,
+  ): Promise<Array<{ contextId: string; submittedCount: number; hasInProgress: boolean; latestSubmittedAt: Date | null }>> {
+    const rows = await this.responseRepo
+      .createQueryBuilder('r')
+      .select('r."contextId"', 'contextId')
+      .addSelect('COUNT(*) FILTER (WHERE r.status = :submitted)', 'submittedCount')
+      .addSelect('BOOL_OR(r.status = :inProgress)', 'hasInProgress')
+      .addSelect('MAX(r."submittedAt")', 'latestSubmittedAt')
+      .where('r."tenantId" = :tenantId', { tenantId })
+      .andWhere('r."surveyId" = :surveyId', { surveyId })
+      .andWhere(`r."responseMetadata"->>'cohortId' = :cohortId`, { cohortId })
+      .setParameters({ submitted: ResponseStatus.SUBMITTED, inProgress: ResponseStatus.IN_PROGRESS })
+      .groupBy('r."contextId"')
+      .getRawMany();
+
+    return rows.map((r) => ({
+      contextId: r.contextId,
+      submittedCount: parseInt(r.submittedCount, 10) || 0,
+      hasInProgress: r.hasInProgress === true || r.hasInProgress === 't',
+      latestSubmittedAt: r.latestSubmittedAt,
+    }));
+  }
 
   async getResponseById(
     tenantId: string,

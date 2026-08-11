@@ -569,7 +569,7 @@ export class SurveyService {
       const dto: CreateSurveyDto = {
         survey_title: `${original.surveyTitle} (Copy)`,
         survey_description: original.surveyDescription,
-        survey_type: original.surveyType,
+        survey_type: original.surveyType as CreateSurveyDto['survey_type'],
         settings: original.settings,
         theme: original.theme,
         target_roles: original.targetRoles ?? undefined,
@@ -759,7 +759,7 @@ export class SurveyService {
 
       try {
         const defaultTheme = { primaryColor: '#1976d2' };
-        const defaultSettings = { isAnonymous: false, allowMultipleSubmissions: true };
+        const defaultSettings = { isAnonymous: false };
 
         const survey = queryRunner.manager.create(Survey, {
           tenantId,
