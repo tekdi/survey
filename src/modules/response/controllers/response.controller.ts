@@ -30,6 +30,7 @@ import {
   UpdateResponseDto,
   SubmitResponseDto,
 } from '../dto/create-response.dto';
+import { ResponseStatus } from '../entities/survey-response.entity';
 import { APIID } from '@/common/utils/api-id.config';
 
 import { JwtAuthGuard } from '@/common/guards/keycloak.guard';
@@ -68,12 +69,18 @@ export class ResponseController {
   @ApiOkResponse({ description: 'Responses fetched successfully' })
   public async findAll(
     @Req() request: Request,
-    @Body() body: { page?: number; limit?: number; sortBy?: string; sortOrder?: 'ASC' | 'DESC'; contextIds?: string[] },
+    @Body() body: { page?: number; limit?: number; sortBy?: string; sortOrder?: 'ASC' | 'DESC'; contextIds?: string[]; status?: string },
     @Res() response: Response,
     @GetTenantId() tenantId: string,
     @Param('surveyId', ParseUUIDPipe) surveyId: string,
   ) {
-    return this.responseService.findAllBySurvey(request, tenantId, surveyId, body, response);
+    return this.responseService.findAllBySurvey(
+      request,
+      tenantId,
+      surveyId,
+      { ...body, status: body.status as ResponseStatus },
+      response,
+    );
   }
 
   @UseFilters(new AllExceptionsFilter(APIID.RESPONSE_STATS))

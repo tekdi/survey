@@ -14,7 +14,7 @@ import {
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { FieldType } from '../entities/survey-field.entity';
-import { SurveyContextType } from '../entities/survey.entity';
+import { SurveyContextType, SurveyEntryType } from '../entities/survey.entity';
 
 export class CreateFieldDto {
   @ApiProperty()
@@ -125,10 +125,14 @@ export class CreateSurveyDto {
   @IsString()
   survey_description?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Whether the survey accepts one submission or many per user',
+    enum: SurveyEntryType,
+    example: SurveyEntryType.SINGLE,
+  })
   @IsOptional()
-  @IsString()
-  survey_type?: string;
+  @IsEnum(SurveyEntryType)
+  survey_type?: SurveyEntryType;
 
   @ApiPropertyOptional()
   @IsOptional()

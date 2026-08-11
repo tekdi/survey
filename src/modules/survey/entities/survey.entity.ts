@@ -29,6 +29,11 @@ export enum SurveyContextType {
   NONE = 'none',             // General survey, no specific context
 }
 
+export enum SurveyEntryType {
+  SINGLE = 'single', // one submission per user per survey (default behavior)
+  MULTI = 'multi',   // any number of submissions per user per survey; every entry is retained
+}
+
 @Entity({ name: 'SurveyMaster' })
 @Index('idx_survey_tenant', ['tenantId'])
 @Index('idx_survey_status', ['status'])

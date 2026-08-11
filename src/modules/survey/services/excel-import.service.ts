@@ -1,7 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as ExcelJS from 'exceljs';
-import { SurveyContextType, SurveyStatus } from '../entities/survey.entity';
+import { SurveyContextType, SurveyStatus, SurveyEntryType } from '../entities/survey.entity';
 import { FieldType } from '../entities/survey-field.entity';
 
 export interface ExcelValidationError {
@@ -17,7 +17,7 @@ export interface ParsedSurveyInfo {
   targetRoles: string[] | null;
   targetGeo: { label: string } | null;
   contextType: SurveyContextType;
-  surveyType: string | null;
+  surveyType: SurveyEntryType | null;
   academicYear?: string[] | null;
   startDate?: Date;
   endDate?: Date;
@@ -141,6 +141,19 @@ export class ExcelImportService {
       ([, v]) => (v || '').toString().trim().toLowerCase() === lower,
     );
     return foundEntry ? foundEntry[0] : '';
+  }
+
+  private validateSurveyType(raw: string): { value: SurveyEntryType | null; error: string | null } {
+    const trimmed = (raw || '').trim();
+    if (!trimmed) return { value: null, error: null };
+    const lower = trimmed.toLowerCase();
+    if (lower === SurveyEntryType.SINGLE || lower === SurveyEntryType.MULTI) {
+      return { value: lower as SurveyEntryType, error: null };
+    }
+    return {
+      value: null,
+      error: `TypeOfSurvey must be one of: single, multi`,
+    };
   }
 
   private findOptionColumns(headers: string[]): number[] {
@@ -414,7 +427,11 @@ export class ExcelImportService {
     const contextType: SurveyContextType = ((contextParts[0] || SurveyContextType.NONE) as SurveyContextType);
 
     const surveyTypeStr = getInfoValue('TypeOfSurvey') || getInfoValue('Type of Survey');
-    const surveyType = surveyTypeStr ? surveyTypeStr.trim() : null;
+    const surveyTypeResult = this.validateSurveyType(surveyTypeStr);
+    if (surveyTypeResult.error) {
+      errors.push({ sheet: 'SurveyInfo', field: 'TypeOfSurvey', message: surveyTypeResult.error });
+    }
+    const surveyType = surveyTypeResult.value;
 
     const academicYearRaw = getInfoValue('Academic Year') || getInfoValue('AcademicYear');
     const academicYear = academicYearRaw
