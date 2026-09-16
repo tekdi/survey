@@ -177,11 +177,45 @@ export class SurveyService {
         .createQueryBuilder('survey')
         .where('survey.tenantId = :tenantId', { tenantId });
 
-      // Filter by targetRoles if provided
+      // Filter by targetRoles if provided — a survey with no role restriction
+      // (null) is treated as open to all roles and always matches.
       if (filters?.targetRoles?.length) {
         queryBuilder = queryBuilder.andWhere(
           '(survey."targetRoles" IS NULL OR survey."targetRoles" ??| ARRAY[:...targetRoles])',
           { targetRoles: filters.targetRoles },
+        );
+      }
+
+      // Filter by structured SDBV ids if provided (survey.targetGeo is expected
+      // to store { stateId?, districtId?, blockId?, villageId? } once creation
+      // populates it). For each level given in the request, a survey matches if
+      // it either has no value at that level (targeted broader / open) or has
+      // the same value. The caller (learner flow: full sdbv; admin flow: any
+      // subset) decides how many levels to send; survey creation is expected to
+      // store every ancestor id up to its target level so a partial admin query
+      // still resolves correctly against more specific surveys.
+      if (filters?.targetGeo?.stateId) {
+        queryBuilder = queryBuilder.andWhere(
+          `(survey."targetGeo"->>'stateId' IS NULL OR survey."targetGeo"->>'stateId' = :stateId)`,
+          { stateId: filters.targetGeo.stateId },
+        );
+      }
+      if (filters?.targetGeo?.districtId) {
+        queryBuilder = queryBuilder.andWhere(
+          `(survey."targetGeo"->>'districtId' IS NULL OR survey."targetGeo"->>'districtId' = :districtId)`,
+          { districtId: filters.targetGeo.districtId },
+        );
+      }
+      if (filters?.targetGeo?.blockId) {
+        queryBuilder = queryBuilder.andWhere(
+          `(survey."targetGeo"->>'blockId' IS NULL OR survey."targetGeo"->>'blockId' = :blockId)`,
+          { blockId: filters.targetGeo.blockId },
+        );
+      }
+      if (filters?.targetGeo?.villageId) {
+        queryBuilder = queryBuilder.andWhere(
+          `(survey."targetGeo"->>'villageId' IS NULL OR survey."targetGeo"->>'villageId' = :villageId)`,
+          { villageId: filters.targetGeo.villageId },
         );
       }
 

@@ -2,6 +2,28 @@ import { IsOptional, IsInt, Min, Max, IsString, IsIn, IsArray, ValidateNested } 
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
+export class TargetGeoFilterDto {
+  @ApiPropertyOptional({ description: 'State id. A survey with no stateId set (open/broader) still matches.' })
+  @IsOptional()
+  @IsString()
+  stateId?: string;
+
+  @ApiPropertyOptional({ description: 'District id. A survey with no districtId set (state-level or broader) still matches.' })
+  @IsOptional()
+  @IsString()
+  districtId?: string;
+
+  @ApiPropertyOptional({ description: 'Block id. A survey with no blockId set (district-level or broader) still matches.' })
+  @IsOptional()
+  @IsString()
+  blockId?: string;
+
+  @ApiPropertyOptional({ description: 'Village id. A survey with no villageId set (block-level or broader) still matches.' })
+  @IsOptional()
+  @IsString()
+  villageId?: string;
+}
+
 export class FiltersDto {
   @ApiPropertyOptional({ type: [String], description: 'Filter by target roles' })
   @IsOptional()
@@ -23,6 +45,12 @@ export class FiltersDto {
   @IsOptional()
   @IsString()
   academicYear?: string;
+
+  @ApiPropertyOptional({ type: TargetGeoFilterDto, description: 'Filter by SDBV (state/district/block/village) ids' })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => TargetGeoFilterDto)
+  targetGeo?: TargetGeoFilterDto;
 }
 
 export class PaginationDto {
